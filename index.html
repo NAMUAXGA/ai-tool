@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>전사 AI Tool 구독 현황 대시보드</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen">
+
+    <!-- Navigation Header -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-30">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="bg-indigo-600 text-white p-2 rounded-lg font-bold">
+                    <i class="fa-solid me-1 fa-robot"></i> AI
+                </div>
+                <div>
+                    <h1 class="text-lg font-bold text-slate-900 leading-tight">전사 AI Tool 구독 현황</h1>
+                    <p class="text-xs text-slate-500">Google Sheets 데이터 기반 대시보드</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <button onclick="openAddModal()" class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm px-3 py-2 rounded-lg font-medium transition flex items-center gap-1 shadow-sm">
+                    <i class="fa-solid fa-plus text-xs"></i> 항목 추가
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+
+        <!-- Filter & Search Bar -->
+        <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-wrap gap-3 items-center justify-between">
+            <div class="flex flex-wrap items-center gap-2.5 w-full md:w-auto">
+                <!-- 1. 본부 필터 -->
+                <select id="deptFilter" onchange="renderData()" class="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    <option value="">전체 본부</option>
+                </select>
+
+                <!-- 2. 구분 필터 -->
+                <select id="typeFilter" onchange="renderData()" class="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    <option value="">전체 구분</option>
+                    <option value="개인">개인</option>
+                    <option value="팀">팀</option>
+                    <option value="공용">공용</option>
+                </select>
+
+                <!-- 3. 프로그램 필터 -->
+                <select id="programFilter" onchange="renderData()" class="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    <option value="">전체 프로그램</option>
+                </select>
+
+                <!-- 4. 사용자명/검색어 입력 -->
+                <div class="relative flex-1 md:w-56">
+                    <input type="text" id="searchInput" oninput="renderData()" placeholder="사용자명 검색" 
+                           class="w-full pl-3 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+            </div>
+
+            <div class="text-xs text-slate-500 font-medium">
+                조회결과: <span id="filtered-count" class="font-bold text-indigo-600 text-sm">0</span>건
+            </div>
+        </div>
+
+        <!-- KPI Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-medium text-slate-500">활성 라이선스 건수</p>
+                    <h2 id="kpi-total-count" class="text-2xl font-extrabold text-slate-900 mt-1">0건</h2>
+                </div>
+                <div class="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-lg flex items-center justify-center text-xl">
+                    <i class="fa-solid fa-list-check"></i>
+                </div>
+            </div>
+
+            <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-medium text-slate-500">월 총 구독 비용</p>
+                    <h2 id="kpi-total-cost" class="text-2xl font-extrabold text-emerald-600 mt-1">$0.00</h2>
+                </div>
+                <div class="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-lg flex items-center justify-center text-xl">
+                    <i class="fa-solid fa-dollar-sign"></i>
+                </div>
+            </div>
+
+            <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-medium text-slate-500">최대 이용 본부</p>
+                    <h2 id="kpi-top-dept" class="text-2xl font-extrabold text-slate-900 mt-1">-</h2>
+                </div>
+                <div class="w-12 h-12 bg-blue-50 text-blue-600 rounded-lg flex items-center justify-center text-xl">
+                    <i class="fa-solid fa-building"></i>
+                </div>
+            </div>
+
+            <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-medium text-slate-500">인기 AI Tool</p>
+                    <h2 id="kpi-top-tool" class="text-2xl font-extrabold text-slate-900 mt-1">-</h2>
+                </div>
+                <div class="w-12 h-12 bg-purple-50 text-purple-600 rounded-lg flex items-center justify-center text-xl">
+                    <i class="fa-solid fa-wand-magic-sparkles"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- Charts Section -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <!-- 프로그램별 구독 수량 (클릭 이벤트 처리 연동) -->
+            <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+                <h3 class="text-sm font-bold text-slate-800 mb-4 flex items-center gap-2">
+                    <i class="fa-solid fa-chart-column text-indigo-500"></i> 프로그램별 이용 인원수
+                    <span class="text-xs font-normal text-slate-400 ms-auto">(막대 클릭 시 해당 필터 적용)</span>
+                </h3>
+                <div class="relative h-64">
+                    <canvas id="toolChart"></canvas>
+                </div>
+            </div>
+
+            <!-- 본부별 AI 비용 지출 비중 -->
+            <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+                <h3 class="text-sm font-bold text-slate-800 mb-4 flex items-center gap-2">
+                    <i class="fa-solid fa-chart-pie text-indigo-500"></i> 본부별 AI 비용 지출 비중
+                </h3>
+                <div class="relative h-64">
+                    <canvas id="deptChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Data Table -->
+        <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm whitespace-nowrap">
+                    <thead class="bg-slate-100 text-slate-600 font-semibold border-b border-slate-200 uppercase text-xs">
+                        <tr>
+                            <th class="py-3 px-4">No.</th>
+                            <th class="py-3 px-4">구분</th>
+                            <th class="py-3 px-4">프로그램명</th>
+                            <th class="py-3 px-4">버전</th>
+                            <th class="py-3 px-4">본부</th>
+                            <th class="py-3 px-4">사용자</th>
+                            <th class="py-3 px-4">사용용도</th>
+                            <th class="py-3 px-4">수량</th>
+                            <th class="py-3 px-4">단가</th>
+                            <th class="py-3 px-4">총액</th>
+                            <th class="py-3 px-4 text-center">관리</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody" class="divide-y divide-slate-100">
+                        <!-- Dynamic Rows -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <!-- Modal for Edit / Add -->
+    <div id="dataModal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-xl border border-slate-200 max-w-lg w-full overflow-hidden">
+            <div class="px-6 py-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
+                <h3 id="modalTitle" class="font-bold text-slate-900">구독 정보 추가/수정</h3>
+                <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <form id="dataForm" onsubmit="saveData(event)" class="p-6 space-y-4">
+                <input type="hidden" id="editIndex">
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="text-xs font-semibold text-slate-600 mb-1 block">구분</label>
+                        <select id="modalType" class="w-full border border-slate-200 rounded-lg p-2 text-sm">
+                            <option value="개인">개인</option>
+                            <option value="팀">팀</option>
+                            <option value="공용">공용</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-xs font-semibold text-slate-600 mb-1 block">프로그램명</label>
+                        <input type="text" id="modalProgram" required class="w-full border border-slate-200 rounded-lg p-2 text-sm">
+                    </div>
+                    <div>
+                        <label class="text-xs font-semibold text-slate-600 mb-1 block">버전</label>
+                        <input type="text" id="modalVersion" class="w-full border border-slate-200 rounded-lg p-2 text-sm">
+                    </div>
+                    <div>
+                        <label class="text-xs font-semibold text-slate-600 mb-1 block">본부</label>
+                        <input type="text" id="modalDept" required class="w-full border border-slate-200 rounded-lg p-2 text-sm">
+                    </div>
+                    <div>
+                        <label class="text-xs font-semibold text-slate-600 mb-1 block">수량</label>
+                        <input type="number" id="modalQty" required min="1" class="w-full border border-slate-200 rounded-lg p-2 text-sm">
+                    </div>
+                    <div>
+                        <label class="text-xs font-semibold text-slate-600 mb-1 block">단가 ($)</label>
+                        <input type="number" id="modalPrice" required step="0.01" class="w-full border border-slate-200 rounded-lg p-2 text-sm">
+                    </div>
+                </div>
+                <div>
+                    <label class="text-xs font-semibold text-slate-600 mb-1 block">사용자</label>
+                    <input type="text" id="modalUser" required class="w-full border border-slate-200 rounded-lg p-2 text-sm">
+                </div>
+                <div>
+                    <label class="text-xs font-semibold text-slate-600 mb-1 block">사용용도</label>
+                    <input type="text" id="modalUsage" class="w-full border border-slate-200 rounded-lg p-2 text-sm">
+                </div>
+                <div class="flex justify-end gap-2 pt-4 border-t border-slate-100">
+                    <button type="button" onclick="closeModal()" class="px-4 py-2 border border-slate-200 rounded-lg text-sm text-slate-600 hover:bg-slate-50">취소</button>
+                    <button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700">저장</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Script Section -->
+    <script>
+        let RAW_DATA = [
+            {"no":1,"type":"개인","program":"Claude","version":"Pro","start":"2025-09-01","end":"2026-08-31","usage":"바이브 코딩/개발","dept":"클라우드연구소","qty":1,"user":"정지웅","price":20.00,"total":20.00,"payment":"월구독"},
+            {"no":2,"type":"개인","program":"Claude","version":"Max","start":"2025-09-01","end":"2026-08-31","usage":"바이브 코딩/개발","dept":"클라우드연구소","qty":1,"user":"염규원","price":100.00,"total":100.00,"payment":"월구독"},
+            {"no":3,"type":"개인","program":"Claude","version":"Pro","start":"2025-09-01","end":"2026-08-31","usage":"바이브 코딩/개발","dept":"클라우드연구소","qty":1,"user":"소수영","price":20.00,"total":20.00,"payment":"월구독"},
+            {"no":4,"type":"개인","program":"Claude","version":"Max","start":"2025-09-01","end":"2026-08-31","usage":"바이브 코딩/개발","dept":"클라우드연구소","qty":1,"user":"선인장","price":100.00,"total":100.00,"payment":"월구독"},
+            {"no":5,"type":"개인","program":"Claude","version":"Pro","start":"2025-09-01","end":"2026-08-31","usage":"바이브 코딩/개발","dept":"클라우드연구소","qty":1,"user":"박건태","price":20.00,"total":20.00,"payment":"월구독"},
+            {"no":6,"type":"개인","program":"Claude","version":"Pro","start":"2025-09-01","end":"2026-08-31","usage":"바이브 코딩/개발","dept":"클라우드연구소","qty":1,"user":"양민영","price":20.00,"total":20.00,"payment":"월구독"},
+            {"no":7,"type":"팀","program":"Claude","version":"TEAM","start":"2026-07-01","end":"","usage":"바이브 코딩","dept":"영업1본부","qty":1,"user":"배준열","price":25.00,"total":25.00,"payment":"월구독"},
+            {"no":8,"type":"팀","program":"Claude","version":"TEAM","start":"2026-07-01","end":"","usage":"바이브 코딩","dept":"영업1본부","qty":1,"user":"이훈","price":25.00,"total":25.00,"payment":"월구독"},
+            {"no":9,"type":"팀","program":"Claude","version":"TEAM","start":"2026-07-01","end":"","usage":"바이브 코딩","dept":"영업1본부","qty":1,"user":"서대률","price":25.00,"total":25.00,"payment":"월구독"},
+            {"no":10,"type":"팀","program":"Claude","version":"TEAM","start":"2026-07-01","end":"","usage":"바이브 코딩","dept":"영업1본부","qty":1,"user":"김현국","price":25.00,"total":25.00,"payment":"월구독"},
+            {"no":11,"type":"팀","program":"Claude","version":"TEAM","start":"2026-07-01","end":"","usage":"바이브 코딩","dept":"영업지원팀","qty":1,"user":"김지선","price":25.00,"total":25.00,"payment":"월구독"},
+            {"no":12,"type":"개인","program":"Claude Code","version":"MAX100","start":"2026-03-01","end":"","usage":"개발 어시스턴트","dept":"AI본부","qty":6,"user":"고우주, 김형진, 이정훈, 양성민, 조건호, 김승혁","price":100.00,"total":600.00,"payment":"월구독"},
+            {"no":13,"type":"공용","program":"Claude Code","version":"MAX200","start":"2026-03-02","end":"","usage":"개발 어시스턴트","dept":"AI본부","qty":1,"user":"김형진","price":200.00,"total":200.00,"payment":"월구독"},
+            {"no":14,"type":"공용","program":"CodeRabbit","version":"Lite","start":"2025-08-12","end":"","usage":"개발 어시스턴트","dept":"AI본부","qty":1,"user":"이정훈","price":15.00,"total":15.00,"payment":"월구독"},
+            {"no":15,"type":"공용","program":"ChatGPT","version":"Plus","start":"2025-07-08","end":"","usage":"업무 및 개발 어시스턴트","dept":"AI본부","qty":1,"user":"오희진","price":20.00,"total":20.00,"payment":"월구독"},
+            {"no":16,"type":"공용","program":"Figma","version":"Full","start":"2025-07-08","end":"","usage":"프론트, 디자인, 기획","dept":"AI본부","qty":1,"user":"양성민","price":20.00,"total":20.00,"payment":"월구독"},
+            {"no":17,"type":"공용","program":"Claude","version":"Pro","start":"2026-04-07","end":"","usage":"업무 및 리서치용","dept":"AI본부","qty":1,"user":"조건호","price":20.00,"total":20.00,"payment":"월구독"},
+            {"no":18,"type":"개인","program":"Gemini","version":"Pro","start":"2026-06-01","end":"","usage":"업무용","dept":"기술1본부","qty":1,"user":"이민우, 허윤석, 지병천, 이효정, 이찬용","price":20.00,"total":20.00,"payment":"월구독"},
+            {"no":19,"type":"개인","program":"Gemini","version":"Pro","start":"2026-06-01","end":"","usage":"업무용","dept":"기술1본부","qty":1,"user":"정창남, 신성호, 염강건, 정다인, 최윤희","price":20.00,"total":20.00,"payment":"월구독"},
+            {"no":20,"type":"개인","program":"Gemini","version":"Pro","start":"2026-06-01","end":"","usage":"업무용","dept":"기술1본부","qty":1,"user":"정광훈, 서호진, 안윤상, 이창훈, 이의현","price":20.00,"total":20.00,"payment":"월구독"},
+            {"no":21,"type":"개인","program":"Gemini","version":"Pro","start":"2026-06-01","end":"","usage":"업무용","dept":"기술1본부","qty":1,"user":"이을범, 박진협, 최성구, 성준호, 정요안","price":20.00,"total":20.00,"payment":"월구독"},
+            {"no":22,"type":"개인","program":"Claude","version":"Pro","start":"2026-06-01","end":"","usage":"바이브 코딩/개발","dept":"기술연구소","qty":1,"user":"김정재","price":22.00,"total":22.00,"payment":"월구독"},
+            {"no":23,"type":"개인","program":"Claude","version":"Pro","start":"2026-06-01","end":"","usage":"바이브 코딩/개발","dept":"기술연구소","qty":1,"user":"임승민","price":22.00,"total":22.00,"payment":"월구독"},
+            {"no":24,"type":"개인","program":"Github Copilot","version":"-","start":"2026-06-01","end":"","usage":"바이브 코딩/개발","dept":"기술연구소","qty":1,"user":"양인철","price":22.00,"total":22.00,"payment":"월구독"},
+            {"no":25,"type":"개인","program":"Github Copilot","version":"-","start":"2026-06-01","end":"","usage":"바이브 코딩/개발","dept":"기술연구소","qty":1,"user":"추희철","price":22.00,"total":22.00,"payment":"월구독"},
+            {"no":26,"type":"개인","program":"ChatGPT","version":"-","start":"2026-06-01","end":"","usage":"바이브 코딩/개발","dept":"기술연구소","qty":1,"user":"김홍희","price":22.00,"total":22.00,"payment":"월구독"},
+            {"no":27,"type":"개인","program":"Claude","version":"Pro","start":"2026-06-01","end":"","usage":"바이브 코딩/개발","dept":"기술연구소","qty":1,"user":"윤동수","price":22.00,"total":22.00,"payment":"월구독"},
+            {"no":28,"type":"개인","program":"Claude","version":"Pro","start":"2026-06-01","end":"","usage":"바이브 코딩/개발","dept":"기술연구소","qty":1,"user":"김지연","price":22.00,"total":22.00,"payment":"월구독"},
+            {"no":29,"type":"개인","program":"Google Antigravity CLI","version":"-","start":"2026-06-01","end":"","usage":"바이브 코딩/개발","dept":"기술연구소","qty":1,"user":"김주현","price":22.00,"total":22.00,"payment":"월구독"},
+            {"no":30,"type":"개인","program":"Claude","version":"Pro","start":"2026-06-01","end":"","usage":"바이브 코딩/개발","dept":"기술연구소","qty":1,"user":"김지은","price":22.00,"total":22.00,"payment":"월구독"},
+            {"no":31,"type":"개인","program":"Claude","version":"Pro","start":"2026-06-01","end":"","usage":"바이브 코딩/개발","dept":"기술연구소","qty":1,"user":"김영주","price":22.00,"total":22.00,"payment":"월구독"}
+        ];
+
+        let deptChartInstance = null;
+        let toolChartInstance = null;
+
+        window.onload = function() {
+            initFilters();
+            renderData();
+        };
+
+        function initFilters() {
+            const deptSelect = document.getElementById('deptFilter');
+            const programSelect = document.getElementById('programFilter');
+
+            const depts = [...new Set(RAW_DATA.map(d => d.dept))].filter(Boolean);
+            const programs = [...new Set(RAW_DATA.map(d => d.program))].filter(Boolean);
+
+            // 기존 옵션 유지 후 추가
+            deptSelect.innerHTML = '<option value="">전체 본부</option>';
+            programSelect.innerHTML = '<option value="">전체 프로그램</option>';
+
+            depts.forEach(d => {
+                const opt = document.createElement('option');
+                opt.value = d;
+                opt.textContent = d;
+                deptSelect.appendChild(opt);
+            });
+
+            programs.forEach(p => {
+                const opt = document.createElement('option');
+                opt.value = p;
+                opt.textContent = p;
+                programSelect.appendChild(opt);
+            });
+        }
+
+        function renderData() {
+            const search = document.getElementById('searchInput').value.toLowerCase();
+            const dept = document.getElementById('deptFilter').value;
+            const type = document.getElementById('typeFilter').value;
+            const program = document.getElementById('programFilter').value;
+
+            const filtered = RAW_DATA.filter(item => {
+                const matchesSearch = item.user.toLowerCase().includes(search) || 
+                                      item.usage.toLowerCase().includes(search) ||
+                                      item.program.toLowerCase().includes(search);
+                const matchesDept = !dept || item.dept === dept;
+                const matchesType = !type || item.type === type;
+                const matchesProgram = !program || item.program === program;
+
+                return matchesSearch && matchesDept && matchesType && matchesProgram;
+            });
+
+            const tbody = document.getElementById('tableBody');
+            tbody.innerHTML = '';
+
+            filtered.forEach((item) => {
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-slate-50 border-b border-slate-100 transition";
+                tr.innerHTML = `
+                    <td class="py-3 px-4 font-mono text-xs text-slate-400">${item.no}</td>
+                    <td class="py-3 px-4"><span class="inline-block px-2.5 py-1 rounded text-xs font-semibold whitespace-nowrap ${getTypeBadgeClass(item.type)}">${item.type}</span></td>
+                    <td class="py-3 px-4 font-semibold text-slate-900">${item.program}</td>
+                    <td class="py-3 px-4 text-xs text-slate-500">${item.version || '-'}</td>
+                    <td class="py-3 px-4 text-xs">${item.dept}</td>
+                    <td class="py-3 px-4 text-xs text-slate-700 max-w-xs truncate" title="${item.user}">${item.user}</td>
+                    <td class="py-3 px-4 text-xs text-slate-500">${item.usage}</td>
+                    <td class="py-3 px-4 text-xs font-mono">${item.qty}</td>
+                    <td class="py-3 px-4 text-xs font-mono">$${item.price.toFixed(2)}</td>
+                    <td class="py-3 px-4 text-xs font-mono font-bold text-emerald-600">$${item.total.toFixed(2)}</td>
+                    <td class="py-3 px-4 text-center">
+                        <div class="flex justify-center gap-1">
+                            <button onclick="editData(${item.no})" class="p-1 text-slate-400 hover:text-indigo-600 text-xs"><i class="fa-solid fa-pen"></i></button>
+                            <button onclick="deleteData(${item.no})" class="p-1 text-slate-400 hover:text-red-600 text-xs"><i class="fa-solid fa-trash"></i></button>
+                        </div>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            document.getElementById('filtered-count').innerText = filtered.length;
+
+            updateKPIs(filtered);
+            updateCharts(filtered);
+        }
+
+        function getTypeBadgeClass(type) {
+            if(type === '개인') return 'bg-blue-50 text-blue-600';
+            if(type === '팀') return 'bg-amber-50 text-amber-600';
+            return 'bg-purple-50 text-purple-600';
+        }
+
+        function updateKPIs(data) {
+            const totalCount = data.length;
+            const totalCost = data.reduce((acc, curr) => acc + curr.total, 0);
+
+            const deptCosts = {};
+            const toolCounts = {};
+
+            data.forEach(d => {
+                deptCosts[d.dept] = (deptCosts[d.dept] || 0) + d.total;
+                toolCounts[d.program] = (toolCounts[d.program] || 0) + d.qty;
+            });
+
+            const topDept = Object.keys(deptCosts).reduce((a, b) => deptCosts[a] > deptCosts[b] ? a : b, '-');
+            const topTool = Object.keys(toolCounts).reduce((a, b) => toolCounts[a] > toolCounts[b] ? a : b, '-');
+
+            document.getElementById('kpi-total-count').innerText = totalCount + '건';
+            document.getElementById('kpi-total-cost').innerText = '$' + totalCost.toLocaleString('en-US', {minimumFractionDigits: 2});
+            document.getElementById('kpi-top-dept').innerText = topDept;
+            document.getElementById('kpi-top-tool').innerText = topTool;
+        }
+
+        function updateCharts(data) {
+            const deptData = {};
+            data.forEach(d => {
+                deptData[d.dept] = (deptData[d.dept] || 0) + d.total;
+            });
+
+            const toolData = {};
+            data.forEach(d => {
+                toolData[d.program] = (toolData[d.program] || 0) + d.qty;
+            });
+
+            // 내림차순 정렬
+            const sortedTools = Object.entries(toolData).sort((a, b) => b[1] - a[1]);
+            const sortedToolLabels = sortedTools.map(item => item[0]);
+            const sortedToolValues = sortedTools.map(item => item[1]);
+
+            if(deptChartInstance) deptChartInstance.destroy();
+            if(toolChartInstance) toolChartInstance.destroy();
+
+            // Tool Bar Chart (수량 내림차순 정렬 + 클릭 이벤트 추가)
+            const ctx2 = document.getElementById('toolChart').getContext('2d');
+            toolChartInstance = new Chart(ctx2, {
+                type: 'bar',
+                data: {
+                    labels: sortedToolLabels,
+                    datasets: [{
+                        label: '구독 수량',
+                        data: sortedToolValues,
+                        backgroundColor: '#6366f1'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: { y: { beginAtZero: true } },
+                    onClick: (evt, activeElements) => {
+                        if (activeElements.length > 0) {
+                            const index = activeElements[0].index;
+                            const clickedProgram = sortedToolLabels[index]; // 내림차순 정렬된 라벨에서 정확한 이름 추출
+
+                            const programSelect = document.getElementById('programFilter');
+                            programSelect.value = clickedProgram; // 해당 필터 선택
+                            renderData(); // 화면 전체 다시 렌더링
+                        }
+                    }
+                }
+            });
+
+            // Dept Pie Chart
+            const ctx1 = document.getElementById('deptChart').getContext('2d');
+            deptChartInstance = new Chart(ctx1, {
+                type: 'doughnut',
+                data: {
+                    labels: Object.keys(deptData),
+                    datasets: [{
+                        data: Object.values(deptData),
+                        backgroundColor: ['#6366f1', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#3b82f6']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'bottom' } }
+                }
+            });
+        }
+
+        function openAddModal() {
+            document.getElementById('modalTitle').innerText = '새 구독 정보 추가';
+            document.getElementById('editIndex').value = '';
+            document.getElementById('dataForm').reset();
+            document.getElementById('dataModal').classList.remove('hidden');
+        }
+
+        function closeModal() {
+            document.getElementById('dataModal').classList.add('hidden');
+        }
+
+        function editData(no) {
+            const item = RAW_DATA.find(d => d.no === no);
+            if(!item) return;
+
+            document.getElementById('modalTitle').innerText = '구독 정보 수정';
+            document.getElementById('editIndex').value = item.no;
+            document.getElementById('modalType').value = item.type;
+            document.getElementById('modalProgram').value = item.program;
+            document.getElementById('modalVersion').value = item.version;
+            document.getElementById('modalDept').value = item.dept;
+            document.getElementById('modalQty').value = item.qty;
+            document.getElementById('modalPrice').value = item.price;
+            document.getElementById('modalUser').value = item.user;
+            document.getElementById('modalUsage').value = item.usage;
+
+            document.getElementById('dataModal').classList.remove('hidden');
+        }
+
+        function saveData(e) {
+            e.preventDefault();
+            const editNo = document.getElementById('editIndex').value;
+            const qty = parseInt(document.getElementById('modalQty').value);
+            const price = parseFloat(document.getElementById('modalPrice').value);
+
+            const payload = {
+                type: document.getElementById('modalType').value,
+                program: document.getElementById('modalProgram').value,
+                version: document.getElementById('modalVersion').value,
+                dept: document.getElementById('modalDept').value,
+                qty: qty,
+                price: price,
+                total: qty * price,
+                user: document.getElementById('modalUser').value,
+                usage: document.getElementById('modalUsage').value
+            };
+
+            if(editNo) {
+                const idx = RAW_DATA.findIndex(d => d.no == editNo);
+                if(idx !== -1) {
+                    RAW_DATA[idx] = { ...RAW_DATA[idx], ...payload };
+                }
+            } else {
+                const newNo = RAW_DATA.length ? Math.max(...RAW_DATA.map(d => d.no)) + 1 : 1;
+                RAW_DATA.push({ no: newNo, ...payload });
+            }
+
+            initFilters();
+            closeModal();
+            renderData();
+        }
+
+        function deleteData(no) {
+            if(confirm('정말 삭제하시겠습니까?')) {
+                RAW_DATA = RAW_DATA.filter(d => d.no !== no);
+                initFilters();
+                renderData();
+            }
+        }
+    </script>
+</body>
+</html>
