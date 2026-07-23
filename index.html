@@ -1,277 +1,296 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>전사 AI Tool 구독 현황</title>
-    <!-- Tailwind CSS CDN -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Chart.js CDN -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>전사 AI Tool 구독 현황 대시보드</title>
+  <!-- Bootstrap 5 CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- PapaParse (CSV 파싱용) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+  <style>
+    body { background-color: #f8f9fa; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+    .card { border: none; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+    .stat-card { border-left: 5px solid #0d6efd; }
+    .stat-card-total { border-left-color: #198754; }
+    .table-responsive { max-height: 500px; overflow-y: auto; }
+  </style>
 </head>
-<body class="bg-slate-50 text-slate-800 min-h-screen">
+<body>
 
-    <!-- Header -->
-    <header class="bg-white border-b border-slate-200 sticky top-0 z-30">
-        <div class="max-w-7xl mx-auto px-4 py-4 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-            <div class="flex items-center space-x-3">
-                <div class="p-2 bg-indigo-600 text-white rounded-lg font-bold">AI</div>
-                <div>
-                    <h1 class="text-xl font-bold text-slate-900">전사 AI Tool 구독 현황</h1>
-                    <p class="text-sm text-slate-500">Google Sheets 실시간 연동 대시보드</p>
-                </div>
-            </div>
+<div class="container py-4">
+  <h2 class="fw-bold mb-4">📊 전사 AI Tool 구독 현황 대시보드</h2>
+
+  <!-- 1. 구글 시트 CSV 연동 설정 영역 -->
+  <div class="card p-3 mb-4 bg-white">
+    <label for="csvUrlInput" class="form-label fw-bold">🔗 구글 시트 CSV URL 연동</label>
+    <div class="input-group">
+      <input type="text" id="csvUrlInput" class="form-control" placeholder="https://docs.google.com/spreadsheets/d/e/.../pub?output=csv">
+      <button class="btn btn-primary" onclick="saveAndFetchUrl()">연동하기</button>
+      <button class="btn btn-outline-secondary" onclick="resetUrl()">초기화</button>
+    </div>
+    <div class="form-text mt-1">구글 시트 > [파일] > [공유] > [웹에 게시] > <b>쉼표로 구분된 값(.csv)</b> 링크를 입력해 주세요.</div>
+  </div>
+
+  <!-- 2. 요약 카드 (KPI) -->
+  <div class="row g-3 mb-4">
+    <div class="col-md-6">
+      <div class="card p-3 stat-card bg-white">
+        <span class="text-muted fw-bold">총 구독 항목 수</span>
+        <h3 class="fw-bold my-1" id="totalCount">0 건</h3>
+      </div>
+    </div>
+    <div class="col-md-6">
+      <div class="card p-3 stat-card stat-card-total bg-white">
+        <span class="text-muted fw-bold">총 월간 비용</span>
+        <h3 class="fw-bold my-1 text-success" id="totalCost">0 원</h3>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. 차트 영역 (부활!) -->
+  <div class="row g-3 mb-4">
+    <div class="col-md-6">
+      <div class="card p-3 bg-white">
+        <h6 class="fw-bold mb-3">🏢 본부별 AI Tool 사용 건수</h6>
+        <div style="position: relative; height:250px;">
+          <canvas id="deptChart"></canvas>
         </div>
-    </header>
-
-    <!-- Main Container -->
-    <main class="max-w-7xl mx-auto px-4 py-8 space-y-6">
-
-        <!-- 구글 시트 URL 입력 설정 -->
-        <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-3">
-            <h4 class="font-bold text-sm text-slate-700">구글 시트 게시(CSV) URL 설정</h4>
-            <div class="flex gap-2">
-                <input type="text" id="sheetUrlInput" 
-                       placeholder="https://docs.google.com/spreadsheets/d/e/.../pub?output=csv 주소를 입력하세요" 
-                       class="flex-1 px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                <button onclick="loadDataFromInput()" 
-                        class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm rounded-lg transition font-medium">
-                    데이터 불러오기
-                </button>
-            </div>
-            <p class="text-xs text-slate-400">※ 구글 시트 메뉴: [파일] &gt; [공유] &gt; [웹에 게시] &gt; [쉼표로 구분된 값(.csv)] 링크 입력</p>
+      </div>
+    </div>
+    <div class="col-md-6">
+      <div class="card p-3 bg-white">
+        <h6 class="fw-bold mb-3">🛠️ 주요 프로그램별 구독 건수</h6>
+        <div style="position: relative; height:250px;">
+          <canvas id="toolChart"></canvas>
         </div>
+      </div>
+    </div>
+  </div>
 
-        <!-- 필터 및 상태 표시 -->
-        <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-wrap gap-3 items-center justify-between">
-            <div class="flex flex-wrap gap-2">
-                <select id="deptFilter" onchange="applyFilters()" class="border px-3 py-1.5 rounded-lg text-sm">
-                    <option value="">전체 본부</option>
-                </select>
-                <select id="typeFilter" onchange="applyFilters()" class="border px-3 py-1.5 rounded-lg text-sm">
-                    <option value="">전체 구분</option>
-                    <option value="개인">개인</option>
-                    <option value="팀">팀</option>
-                    <option value="공용">공용</option>
-                </select>
-                <select id="progFilter" onchange="applyFilters()" class="border px-3 py-1.5 rounded-lg text-sm">
-                    <option value="">전체 프로그램</option>
-                </select>
-            </div>
-            <div class="text-sm font-medium">
-                <span id="loadingStatus" class="text-indigo-600">데이터 대기 중...</span>
-                <span class="ml-3 text-slate-500">조회결과: <strong id="totalCount" class="text-slate-800">0</strong>건</span>
-            </div>
-        </div>
+  <!-- 4. 필터 및 검색 -->
+  <div class="card p-3 mb-4 bg-white">
+    <div class="row g-2">
+      <div class="col-md-4">
+        <input type="text" id="searchInput" class="form-control" placeholder="프로그램명 / 사용자 / 용도 검색..." onkeyup="filterData()">
+      </div>
+      <div class="col-md-4">
+        <select id="deptFilter" class="form-select" onchange="filterData()">
+          <option value="">전체 본부 보기</option>
+        </select>
+      </div>
+      <div class="col-md-4">
+        <select id="toolFilter" class="form-select" onchange="filterData()">
+          <option value="">전체 프로그램 보기</option>
+        </select>
+      </div>
+    </div>
+  </div>
 
-        <!-- 요약 카드 -->
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-                <p class="text-xs text-slate-500">활성 라이선스 건수</p>
-                <h2 id="cardTotalCount" class="text-2xl font-bold mt-1">0건</h2>
-            </div>
-            <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-                <p class="text-xs text-slate-500">월 총 구독 비용</p>
-                <h2 id="cardTotalCost" class="text-2xl font-bold mt-1 text-indigo-600">$0.00</h2>
-            </div>
-            <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-                <p class="text-xs text-slate-500">최대 이용 본부</p>
-                <h2 id="cardTopDept" class="text-2xl font-bold mt-1">-</h2>
-            </div>
-            <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-                <p class="text-xs text-slate-500">인기 AI Tool</p>
-                <h2 id="cardTopProg" class="text-2xl font-bold mt-1">-</h2>
-            </div>
-        </div>
+  <!-- 5. 데이터 테이블 -->
+  <div class="card p-3 bg-white">
+    <div class="table-responsive">
+      <table class="table table-hover align-middle" id="dataTable">
+        <thead class="table-light sticky-top">
+          <tr>
+            <th>No.</th>
+            <th>구분</th>
+            <th>프로그램명</th>
+            <th>버전</th>
+            <th>본부</th>
+            <th>사용자</th>
+            <th>사용용도</th>
+            <th>수량</th>
+            <th>단가</th>
+            <th>총액</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td colspan="10" class="text-center py-4 text-muted">데이터를 불러오는 중이거나 URL이 설정되지 않았습니다.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
 
-        <!-- 데이터 테이블 -->
-        <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-            <div class="overflow-x-auto">
-                <table class="w-full text-sm text-left text-slate-600">
-                    <thead class="bg-slate-100 text-slate-700 font-semibold border-b">
-                        <tr>
-                            <th class="p-3">No.</th>
-                            <th class="p-3">구분</th>
-                            <th class="p-3">프로그램명</th>
-                            <th class="p-3">버전</th>
-                            <th class="p-3">본부</th>
-                            <th class="p-3">사용자</th>
-                            <th class="p-3">사용용도</th>
-                            <th class="p-3">수량</th>
-                            <th class="p-3">단가</th>
-                            <th class="p-3">총액</th>
-                        </tr>
-                    </thead>
-                    <tbody id="tableBody">
-                        <tr>
-                            <td colspan="10" class="p-6 text-center text-slate-400">데이터가 없습니다. CSV URL을 입력해 주세요.</td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </main>
+<script>
+  let rawData = [];
+  let deptChartObj = null;
+  let toolChartObj = null;
 
-    <script>
-        let rawData = [];
-        let filteredData = [];
+  // 페이지 로드 시 저장된 URL 불러오기
+  window.onload = function() {
+    const savedUrl = localStorage.getItem('googleSheetCsvUrl');
+    if (savedUrl) {
+      document.getElementById('csvUrlInput').value = savedUrl;
+      fetchCsvData(savedUrl);
+    }
+  };
 
-        // 1. CSV 파싱 로직 (큰따옴표/쉼표 예외 처리 포함)
-        function parseCSV(text) {
-            const lines = text.trim().split(/\r\n|\n/);
-            if (lines.length < 2) return [];
+  function saveAndFetchUrl() {
+    const url = document.getElementById('csvUrlInput').value.trim();
+    if (!url) {
+      alert('URL을 입력해 주세요.');
+      return;
+    }
+    localStorage.setItem('googleSheetCsvUrl', url);
+    fetchCsvData(url);
+  }
 
-            const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
-            const data = [];
+  function resetUrl() {
+    localStorage.removeItem('googleSheetCsvUrl');
+    document.getElementById('csvUrlInput').value = '';
+    location.reload();
+  }
 
-            for (let i = 1; i < lines.length; i++) {
-                if (!lines[i].trim()) continue;
-                // CSV 큰따옴표 안의 쉼표 처리용 정규식
-                const values = lines[i].match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g) || lines[i].split(',');
-                const row = {};
-                
-                headers.forEach((header, index) => {
-                    let val = values[index] ? values[index].trim() : '';
-                    val = val.replace(/^"|"$/g, ''); // 앞뒤 큰따옴표 제거
-                    row[header] = val;
-                });
-                data.push(row);
-            }
-            return data;
-        }
+  function fetchCsvData(url) {
+    Papa.parse(url, {
+      download: true,
+      header: true,
+      skipEmptyLines: true,
+      complete: function(results) {
+        rawData = results.data;
+        initFilters();
+        renderDashboard(rawData);
+      },
+      error: function(err) {
+        alert('CSV 데이터를 불러오는 데 실패했습니다. URL을 확인해 주세요.');
+        console.error(err);
+      }
+    });
+  }
 
-        // 2. 캐시 방지 적용된 Fetch 함수 (지연 없이 최신 데이터 호출)
-        async function fetchData(csvUrl) {
-            const statusEl = document.getElementById('loadingStatus');
-            statusEl.innerText = "데이터 로딩 중...";
+  function initFilters() {
+    const depts = new Set();
+    const tools = new Set();
 
-            try {
-                // 핵심: URL 끝에 timestamp(&t=시간)를 붙여 브라우저 캐시 방지
-                const cacheBusterUrl = csvUrl + (csvUrl.includes('?') ? '&' : '?') + 't=' + new Date().getTime();
-                
-                const response = await fetch(cacheBusterUrl);
-                if (!response.ok) throw new Error("네트워크 응답 에러");
+    rawData.forEach(row => {
+      if(row['본부']) depts.add(row['본부'].trim());
+      if(row['프로그램명']) tools.add(row['프로그램명'].trim());
+    });
 
-                const csvText = await response.text();
-                rawData = parseCSV(csvText);
-                filteredData = [...rawData];
+    const deptSelect = document.getElementById('deptFilter');
+    const toolSelect = document.getElementById('toolFilter');
 
-                statusEl.innerText = "불러오기 완료!";
-                initDropdowns();
-                applyFilters();
+    deptSelect.innerHTML = '<option value="">전체 본부 보기</option>';
+    toolSelect.innerHTML = '<option value="">전체 프로그램 보기</option>';
 
-            } catch (error) {
-                console.error("데이터 로드 실패:", error);
-                statusEl.innerText = "데이터 로드 실패 (URL 확인 필요)";
-                alert("구글 시트 데이터를 가져오는데 실패했습니다. URL을 다시 확인하세요.");
-            }
-        }
+    depts.forEach(d => deptSelect.innerHTML += `<option value="${d}">${d}</option>`);
+    tools.forEach(t => toolSelect.innerHTML += `<option value="${t}">${t}</option>`);
+  }
 
-        // 입력창 버튼 클릭 시 실행
-        function loadDataFromInput() {
-            const url = document.getElementById('sheetUrlInput').value.trim();
-            if (!url) {
-                alert("구글 시트 CSV 주소를 입력해 주세요.");
-                return;
-            }
-            // 로컬스토리지에 URL 저장하여 재방문 시 자동 로드
-            localStorage.setItem('savedCsvUrl', url);
-            fetchData(url);
-        }
+  function filterData() {
+    const search = document.getElementById('searchInput').value.toLowerCase();
+    const selectedDept = document.getElementById('deptFilter').value;
+    const selectedTool = document.getElementById('toolFilter').value;
 
-        // 3. 필터링 드롭다운 초기화
-        function initDropdowns() {
-            const depts = [...new Set(rawData.map(item => item['본부']).filter(Boolean))];
-            const progs = [...new Set(rawData.map(item => item['프로그램명']).filter(Boolean))];
+    const filtered = rawData.filter(row => {
+      const matchSearch = Object.values(row).some(val => String(val).toLowerCase().includes(search));
+      const matchDept = !selectedDept || (row['본부'] && row['본부'].trim() === selectedDept);
+      const matchTool = !selectedTool || (row['프로그램명'] && row['프로그램명'].trim() === selectedTool);
+      return matchSearch && matchDept && matchTool;
+    });
 
-            const deptSelect = document.getElementById('deptFilter');
-            const progSelect = document.getElementById('progFilter');
+    renderDashboard(filtered);
+  }
 
-            deptSelect.innerHTML = '<option value="">전체 본부</option>';
-            progSelect.innerHTML = '<option value="">전체 프로그램</option>';
+  function renderDashboard(data) {
+    renderTable(data);
+    renderStats(data);
+    renderCharts(data);
+  }
 
-            depts.forEach(d => deptSelect.add(new Option(d, d)));
-            progs.forEach(p => progSelect.add(new Option(p, p)));
-        }
+  function renderTable(data) {
+    const tbody = document.querySelector('#dataTable tbody');
+    tbody.innerHTML = '';
 
-        // 4. 데이터 필터링 및 화면 업데이트
-        function applyFilters() {
-            const dept = document.getElementById('deptFilter').value;
-            const type = document.getElementById('typeFilter').value;
-            const prog = document.getElementById('progFilter').value;
+    if (data.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="10" class="text-center py-4 text-muted">검색 결과가 없습니다.</td></tr>';
+      return;
+    }
 
-            filteredData = rawData.filter(item => {
-                return (!dept || item['본부'] === dept) &&
-                       (!type || item['구분'] === type) &&
-                       (!prog || item['프로그램명'] === prog);
-            });
+    data.forEach((row, idx) => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${row['No.'] || idx + 1}</td>
+        <td>${row['구분'] || ''}</td>
+        <td class="fw-bold">${row['프로그램명'] || ''}</td>
+        <td>${row['버전'] || ''}</td>
+        <td>${row['본부'] || ''}</td>
+        <td>${row['사용자'] || ''}</td>
+        <td>${row['사용용도'] || ''}</td>
+        <td>${row['수량'] || ''}</td>
+        <td>${row['단가'] || ''}</td>
+        <td class="fw-bold text-primary">${row['총액'] || ''}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
 
-            renderTable();
-            renderCards();
-        }
+  function renderStats(data) {
+    document.getElementById('totalCount').innerText = `${data.length} 건`;
 
-        // 5. 테이블 그리기
-        function renderTable() {
-            const tbody = document.getElementById('tableBody');
-            document.getElementById('totalCount').innerText = filteredData.length;
+    let totalSum = 0;
+    data.forEach(row => {
+      if (row['총액']) {
+        const num = parseInt(String(row['총액']).replace(/[^0-9]/g, ''), 10);
+        if (!isNaN(num)) totalSum += num;
+      }
+    });
 
-            if (filteredData.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="10" class="p-6 text-center text-slate-400">조회된 데이터가 없습니다.</td></tr>';
-                return;
-            }
+    document.getElementById('totalCost').innerText = totalSum.toLocaleString() + ' 원';
+  }
 
-            tbody.innerHTML = filteredData.map((row, index) => `
-                <tr class="border-b hover:bg-slate-50">
-                    <td class="p-3">${row['No.'] || index + 1}</td>
-                    <td class="p-3">${row['구분'] || '-'}</td>
-                    <td class="p-3 font-semibold text-slate-800">${row['프로그램명'] || '-'}</td>
-                    <td class="p-3">${row['버전'] || '-'}</td>
-                    <td class="p-3">${row['본부'] || '-'}</td>
-                    <td class="p-3">${row['사용자'] || '-'}</td>
-                    <td class="p-3 text-xs text-slate-500">${row['사용용도'] || '-'}</td>
-                    <td class="p-3">${row['수량'] || '1'}</td>
-                    <td class="p-3">${row['단가'] ? '$' + row['단가'] : '-'}</td>
-                    <td class="p-3 font-semibold">${row['총액'] ? '$' + row['총액'] : '-'}</td>
-                </tr>
-            `).join('');
-        }
+  function renderCharts(data) {
+    // 본부별 카운트
+    const deptCounts = {};
+    // 프로그램별 카운트
+    const toolCounts = {};
 
-        // 6. 요약 카드 그리기
-        function renderCards() {
-            document.getElementById('cardTotalCount').innerText = `${filteredData.length}건`;
+    data.forEach(row => {
+      const dept = row['본부'] ? row['본부'].trim() : '미지정';
+      const tool = row['프로그램명'] ? row['프로그램명'].trim() : '기타';
 
-            let totalCost = 0;
-            const deptMap = {};
-            const progMap = {};
+      deptCounts[dept] = (deptCounts[dept] || 0) + 1;
+      toolCounts[tool] = (toolCounts[tool] || 0) + 1;
+    });
 
-            filteredData.forEach(row => {
-                // 총액 계산
-                const cost = parseFloat((row['총액'] || '0').toString().replace(/[^0-9.-]+/g,"")) || 0;
-                totalCost += cost;
+    // 1. 본부별 차트 (막대)
+    const ctxDept = document.getElementById('deptChart').getContext('2d');
+    if (deptChartObj) deptChartObj.destroy();
+    deptChartObj = new Chart(ctxDept, {
+      type: 'bar',
+      data: {
+        labels: Object.keys(deptCounts),
+        datasets: [{
+          label: '사용 건수',
+          data: Object.values(deptCounts),
+          backgroundColor: '#0d6efd'
+        }]
+      },
+      options: { responsive: true, maintainAspectRatio: false }
+    });
 
-                // 통계 계산
-                if (row['본부']) deptMap[row['본부']] = (deptMap[row['본부']] || 0) + 1;
-                if (row['프로그램명']) progMap[row['프로그램명']] = (progMap[row['프로그램명']] || 0) + 1;
-            });
+    // 2. 프로그램별 차트 (도넛)
+    const ctxTool = document.getElementById('toolChart').getContext('2d');
+    if (toolChartObj) toolChartObj.destroy();
+    toolChartObj = new Chart(ctxTool, {
+      type: 'doughnut',
+      data: {
+        labels: Object.keys(toolCounts),
+        datasets: [{
+          data: Object.values(toolCounts),
+          backgroundColor: ['#0d6efd', '#198754', '#ffc107', '#dc3545', '#0dcaf0', '#6c757d']
+        }]
+      },
+      options: { responsive: true, maintainAspectRatio: false }
+    });
+  }
+</script>
 
-            document.getElementById('cardTotalCost').innerText = `$${totalCost.toLocaleString('en-US', {minimumFractionDigits: 2})}`;
-
-            // 최다 항목 추출
-            const topDept = Object.keys(deptMap).reduce((a, b) => deptMap[a] > deptMap[b] ? a : b, '-');
-            const topProg = Object.keys(progMap).reduce((a, b) => progMap[a] > progMap[b] ? a : b, '-');
-
-            document.getElementById('cardTopDept').innerText = topDept;
-            document.getElementById('cardTopProg').innerText = topProg;
-        }
-
-        // 페이지 로드 시 기존에 입력했던 주소가 있다면 자동으로 로드
-        window.addEventListener('DOMContentLoaded', () => {
-            const savedUrl = localStorage.getItem('savedCsvUrl');
-            if (savedUrl) {
-                document.getElementById('sheetUrlInput').value = savedUrl;
-                fetchData(savedUrl);
-            }
-        });
-    </script>
 </body>
 </html>
