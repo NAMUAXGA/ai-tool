@@ -8,6 +8,8 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Chart.js CDN -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- PapaParse CDN (CSV 파싱용) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
     <!-- FontAwesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
@@ -22,10 +24,16 @@
                 </div>
                 <div>
                     <h1 class="text-lg font-bold text-slate-900 leading-tight">전사 AI Tool 구독 현황</h1>
-                    <p class="text-xs text-slate-500">Google Sheets 데이터 기반 대시보드</p>
+                    <p class="text-xs text-slate-500 flex items-center gap-1">
+                        <span class="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                        Google Sheets 실시간 연동 대시보드
+                    </p>
                 </div>
             </div>
             <div class="flex items-center gap-2">
+                <button onclick="fetchSheetData()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm px-3 py-2 rounded-lg font-medium transition flex items-center gap-1.5 border border-slate-200">
+                    <i class="fa-solid fa-rotate text-xs"></i> 새로고침
+                </button>
                 <button onclick="openAddModal()" class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm px-3 py-2 rounded-lg font-medium transition flex items-center gap-1 shadow-sm">
                     <i class="fa-solid fa-plus text-xs"></i> 항목 추가
                 </button>
@@ -35,6 +43,30 @@
 
     <!-- Main Container -->
     <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+
+        <!-- Google Sheet URL Configuration Banner -->
+        <div id="sheetUrlConfig" class="bg-indigo-50 border border-indigo-200 rounded-xl p-4 shadow-sm">
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                <div class="flex items-start gap-3">
+                    <div class="p-2 bg-indigo-100 text-indigo-600 rounded-lg shrink-0">
+                        <i class="fa-solid fa-link text-lg"></i>
+                    </div>
+                    <div>
+                        <h4 class="text-sm font-bold text-indigo-950">구글 시트 게시(CSV) URL 설정</h4>
+                        <p class="text-xs text-indigo-700 mt-0.5">
+                            구글 시트의 <b>[파일] > [공유] > [웹에 게시] > [쉼표로 구분된 값(.csv)]</b> 주소를 입력하세요.
+                        </p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2 w-full md:w-auto">
+                    <input type="text" id="sheetUrlInput" placeholder="https://docs.google.com/.../pub?output=csv" 
+                           class="w-full md:w-80 px-3 py-2 bg-white border border-indigo-200 rounded-lg text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    <button onclick="saveSheetUrl()" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs px-4 py-2 rounded-lg font-semibold shrink-0 transition">
+                        연동하기
+                    </button>
+                </div>
+            </div>
+        </div>
 
         <!-- Filter & Search Bar -->
         <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-wrap gap-3 items-center justify-between">
@@ -64,8 +96,9 @@
                 </div>
             </div>
 
-            <div class="text-xs text-slate-500 font-medium">
-                조회결과: <span id="filtered-count" class="font-bold text-indigo-600 text-sm">0</span>건
+            <div class="text-xs text-slate-500 font-medium flex items-center gap-2">
+                <span id="loadingSpinner" class="hidden text-indigo-600"><i class="fa-solid fa-spinner fa-spin"></i> 로딩 중...</span>
+                <span>조회결과: <strong id="filtered-count" class="text-indigo-600 text-sm">0</strong>건</span>
             </div>
         </div>
 
@@ -114,7 +147,7 @@
 
         <!-- Charts Section -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <!-- 프로그램별 구독 수량 (클릭 이벤트 처리 연동) -->
+            <!-- 프로그램별 구독 수량 (클릭 이벤트 연동) -->
             <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
                 <h3 class="text-sm font-bold text-slate-800 mb-4 flex items-center gap-2">
                     <i class="fa-solid fa-chart-column text-indigo-500"></i> 프로그램별 이용 인원수
@@ -220,56 +253,124 @@
 
     <!-- Script Section -->
     <script>
-        let RAW_DATA = [
-            {"no":1,"type":"개인","program":"Claude","version":"Pro","start":"2025-09-01","end":"2026-08-31","usage":"바이브 코딩/개발","dept":"클라우드연구소","qty":1,"user":"정지웅","price":20.00,"total":20.00,"payment":"월구독"},
-            {"no":2,"type":"개인","program":"Claude","version":"Max","start":"2025-09-01","end":"2026-08-31","usage":"바이브 코딩/개발","dept":"클라우드연구소","qty":1,"user":"염규원","price":100.00,"total":100.00,"payment":"월구독"},
-            {"no":3,"type":"개인","program":"Claude","version":"Pro","start":"2025-09-01","end":"2026-08-31","usage":"바이브 코딩/개발","dept":"클라우드연구소","qty":1,"user":"소수영","price":20.00,"total":20.00,"payment":"월구독"},
-            {"no":4,"type":"개인","program":"Claude","version":"Max","start":"2025-09-01","end":"2026-08-31","usage":"바이브 코딩/개발","dept":"클라우드연구소","qty":1,"user":"선인장","price":100.00,"total":100.00,"payment":"월구독"},
-            {"no":5,"type":"개인","program":"Claude","version":"Pro","start":"2025-09-01","end":"2026-08-31","usage":"바이브 코딩/개발","dept":"클라우드연구소","qty":1,"user":"박건태","price":20.00,"total":20.00,"payment":"월구독"},
-            {"no":6,"type":"개인","program":"Claude","version":"Pro","start":"2025-09-01","end":"2026-08-31","usage":"바이브 코딩/개발","dept":"클라우드연구소","qty":1,"user":"양민영","price":20.00,"total":20.00,"payment":"월구독"},
-            {"no":7,"type":"팀","program":"Claude","version":"TEAM","start":"2026-07-01","end":"","usage":"바이브 코딩","dept":"영업1본부","qty":1,"user":"배준열","price":25.00,"total":25.00,"payment":"월구독"},
-            {"no":8,"type":"팀","program":"Claude","version":"TEAM","start":"2026-07-01","end":"","usage":"바이브 코딩","dept":"영업1본부","qty":1,"user":"이훈","price":25.00,"total":25.00,"payment":"월구독"},
-            {"no":9,"type":"팀","program":"Claude","version":"TEAM","start":"2026-07-01","end":"","usage":"바이브 코딩","dept":"영업1본부","qty":1,"user":"서대률","price":25.00,"total":25.00,"payment":"월구독"},
-            {"no":10,"type":"팀","program":"Claude","version":"TEAM","start":"2026-07-01","end":"","usage":"바이브 코딩","dept":"영업1본부","qty":1,"user":"김현국","price":25.00,"total":25.00,"payment":"월구독"},
-            {"no":11,"type":"팀","program":"Claude","version":"TEAM","start":"2026-07-01","end":"","usage":"바이브 코딩","dept":"영업지원팀","qty":1,"user":"김지선","price":25.00,"total":25.00,"payment":"월구독"},
-            {"no":12,"type":"개인","program":"Claude Code","version":"MAX100","start":"2026-03-01","end":"","usage":"개발 어시스턴트","dept":"AI본부","qty":6,"user":"고우주, 김형진, 이정훈, 양성민, 조건호, 김승혁","price":100.00,"total":600.00,"payment":"월구독"},
-            {"no":13,"type":"공용","program":"Claude Code","version":"MAX200","start":"2026-03-02","end":"","usage":"개발 어시스턴트","dept":"AI본부","qty":1,"user":"김형진","price":200.00,"total":200.00,"payment":"월구독"},
-            {"no":14,"type":"공용","program":"CodeRabbit","version":"Lite","start":"2025-08-12","end":"","usage":"개발 어시스턴트","dept":"AI본부","qty":1,"user":"이정훈","price":15.00,"total":15.00,"payment":"월구독"},
-            {"no":15,"type":"공용","program":"ChatGPT","version":"Plus","start":"2025-07-08","end":"","usage":"업무 및 개발 어시스턴트","dept":"AI본부","qty":1,"user":"오희진","price":20.00,"total":20.00,"payment":"월구독"},
-            {"no":16,"type":"공용","program":"Figma","version":"Full","start":"2025-07-08","end":"","usage":"프론트, 디자인, 기획","dept":"AI본부","qty":1,"user":"양성민","price":20.00,"total":20.00,"payment":"월구독"},
-            {"no":17,"type":"공용","program":"Claude","version":"Pro","start":"2026-04-07","end":"","usage":"업무 및 리서치용","dept":"AI본부","qty":1,"user":"조건호","price":20.00,"total":20.00,"payment":"월구독"},
-            {"no":18,"type":"개인","program":"Gemini","version":"Pro","start":"2026-06-01","end":"","usage":"업무용","dept":"기술1본부","qty":1,"user":"이민우, 허윤석, 지병천, 이효정, 이찬용","price":20.00,"total":20.00,"payment":"월구독"},
-            {"no":19,"type":"개인","program":"Gemini","version":"Pro","start":"2026-06-01","end":"","usage":"업무용","dept":"기술1본부","qty":1,"user":"정창남, 신성호, 염강건, 정다인, 최윤희","price":20.00,"total":20.00,"payment":"월구독"},
-            {"no":20,"type":"개인","program":"Gemini","version":"Pro","start":"2026-06-01","end":"","usage":"업무용","dept":"기술1본부","qty":1,"user":"정광훈, 서호진, 안윤상, 이창훈, 이의현","price":20.00,"total":20.00,"payment":"월구독"},
-            {"no":21,"type":"개인","program":"Gemini","version":"Pro","start":"2026-06-01","end":"","usage":"업무용","dept":"기술1본부","qty":1,"user":"이을범, 박진협, 최성구, 성준호, 정요안","price":20.00,"total":20.00,"payment":"월구독"},
-            {"no":22,"type":"개인","program":"Claude","version":"Pro","start":"2026-06-01","end":"","usage":"바이브 코딩/개발","dept":"기술연구소","qty":1,"user":"김정재","price":22.00,"total":22.00,"payment":"월구독"},
-            {"no":23,"type":"개인","program":"Claude","version":"Pro","start":"2026-06-01","end":"","usage":"바이브 코딩/개발","dept":"기술연구소","qty":1,"user":"임승민","price":22.00,"total":22.00,"payment":"월구독"},
-            {"no":24,"type":"개인","program":"Github Copilot","version":"-","start":"2026-06-01","end":"","usage":"바이브 코딩/개발","dept":"기술연구소","qty":1,"user":"양인철","price":22.00,"total":22.00,"payment":"월구독"},
-            {"no":25,"type":"개인","program":"Github Copilot","version":"-","start":"2026-06-01","end":"","usage":"바이브 코딩/개발","dept":"기술연구소","qty":1,"user":"추희철","price":22.00,"total":22.00,"payment":"월구독"},
-            {"no":26,"type":"개인","program":"ChatGPT","version":"-","start":"2026-06-01","end":"","usage":"바이브 코딩/개발","dept":"기술연구소","qty":1,"user":"김홍희","price":22.00,"total":22.00,"payment":"월구독"},
-            {"no":27,"type":"개인","program":"Claude","version":"Pro","start":"2026-06-01","end":"","usage":"바이브 코딩/개발","dept":"기술연구소","qty":1,"user":"윤동수","price":22.00,"total":22.00,"payment":"월구독"},
-            {"no":28,"type":"개인","program":"Claude","version":"Pro","start":"2026-06-01","end":"","usage":"바이브 코딩/개발","dept":"기술연구소","qty":1,"user":"김지연","price":22.00,"total":22.00,"payment":"월구독"},
-            {"no":29,"type":"개인","program":"Google Antigravity CLI","version":"-","start":"2026-06-01","end":"","usage":"바이브 코딩/개발","dept":"기술연구소","qty":1,"user":"김주현","price":22.00,"total":22.00,"payment":"월구독"},
-            {"no":30,"type":"개인","program":"Claude","version":"Pro","start":"2026-06-01","end":"","usage":"바이브 코딩/개발","dept":"기술연구소","qty":1,"user":"김지은","price":22.00,"total":22.00,"payment":"월구독"},
-            {"no":31,"type":"개인","program":"Claude","version":"Pro","start":"2026-06-01","end":"","usage":"바이브 코딩/개발","dept":"기술연구소","qty":1,"user":"김영주","price":22.00,"total":22.00,"payment":"월구독"}
+        // 기본 데이터 (구글 시트 연동 전 기본 표시용)
+        let DEFAULT_DATA = [
+            {"no":1,"type":"개인","program":"Claude","version":"Pro","usage":"바이브 코딩/개발","dept":"클라우드연구소","qty":1,"user":"정지웅","price":20.00,"total":20.00},
+            {"no":2,"type":"개인","program":"Claude","version":"Max","usage":"바이브 코딩/개발","dept":"클라우드연구소","qty":1,"user":"염규원","price":100.00,"total":100.00},
+            {"no":3,"type":"개인","program":"Claude","version":"Pro","usage":"바이브 코딩/개발","dept":"클라우드연구소","qty":1,"user":"소수영","price":20.00,"total":20.00},
+            {"no":4,"type":"개인","program":"Claude","version":"Max","usage":"바이브 코딩/개발","dept":"클라우드연구소","qty":1,"user":"선인장","price":100.00,"total":100.00},
+            {"no":5,"type":"개인","program":"Claude","version":"Pro","usage":"바이브 코딩/개발","dept":"클라우드연구소","qty":1,"user":"박건태","price":20.00,"total":20.00},
+            {"no":6,"type":"개인","program":"Claude","version":"Pro","usage":"바이브 코딩/개발","dept":"클라우드연구소","qty":1,"user":"양민영","price":20.00,"total":20.00},
+            {"no":7,"type":"팀","program":"Claude","version":"TEAM","usage":"바이브 코딩","dept":"영업1본부","qty":1,"user":"배준열","price":25.00,"total":25.00},
+            {"no":8,"type":"팀","program":"Claude","version":"TEAM","usage":"바이브 코딩","dept":"영업1본부","qty":1,"user":"이훈","price":25.00,"total":25.00},
+            {"no":9,"type":"팀","program":"Claude","version":"TEAM","usage":"바이브 코딩","dept":"영업1본부","qty":1,"user":"서대률","price":25.00,"total":25.00},
+            {"no":10,"type":"팀","program":"Claude","version":"TEAM","usage":"바이브 코딩","dept":"영업1본부","qty":1,"user":"김현국","price":25.00,"total":25.00},
+            {"no":11,"type":"팀","program":"Claude","version":"TEAM","usage":"바이브 코딩","dept":"영업지원팀","qty":1,"user":"김지선","price":25.00,"total":25.00},
+            {"no":12,"type":"개인","program":"Claude Code","version":"MAX100","usage":"개발 어시스턴트","dept":"AI본부","qty":6,"user":"고우주, 김형진, 이정훈, 양성민, 조건호, 김승혁","price":100.00,"total":600.00},
+            {"no":13,"type":"공용","program":"Claude Code","version":"MAX200","usage":"개발 어시스턴트","dept":"AI본부","qty":1,"user":"김형진","price":200.00,"total":200.00},
+            {"no":14,"type":"공용","program":"CodeRabbit","version":"Lite","usage":"개발 어시스턴트","dept":"AI본부","qty":1,"user":"이정훈","price":15.00,"total":15.00},
+            {"no":15,"type":"공용","program":"ChatGPT","version":"Plus","usage":"업무 및 개발 어시스턴트","dept":"AI본부","qty":1,"user":"오희진","price":20.00,"total":20.00},
+            {"no":16,"type":"공용","program":"Figma","version":"Full","usage":"프론트, 디자인, 기획","dept":"AI본부","qty":1,"user":"양성민","price":20.00,"total":20.00},
+            {"no":17,"type":"공용","program":"Claude","version":"Pro","usage":"업무 및 리서치용","dept":"AI본부","qty":1,"user":"조건호","price":20.00,"total":20.00},
+            {"no":18,"type":"개인","program":"Gemini","version":"Pro","usage":"업무용","dept":"기술1본부","qty":1,"user":"이민우, 허윤석, 지병천, 이효정, 이찬용","price":20.00,"total":20.00},
+            {"no":19,"type":"개인","program":"Gemini","version":"Pro","usage":"업무용","dept":"기술1본부","qty":1,"user":"정창남, 신성호, 염강건, 정다인, 최윤희","price":20.00,"total":20.00},
+            {"no":20,"type":"개인","program":"Gemini","version":"Pro","usage":"업무용","dept":"기술1본부","qty":1,"user":"정광훈, 서호진, 안윤상, 이창훈, 이의현","price":20.00,"total":20.00},
+            {"no":21,"type":"개인","program":"Gemini","version":"Pro","usage":"업무용","dept":"기술1본부","qty":1,"user":"이을범, 박진협, 최성구, 성준호, 정요안","price":20.00,"total":20.00},
+            {"no":22,"type":"개인","program":"Claude","version":"Pro","usage":"바이브 코딩/개발","dept":"기술연구소","qty":1,"user":"김정재","price":22.00,"total":22.00},
+            {"no":23,"type":"개인","program":"Claude","version":"Pro","usage":"바이브 코딩/개발","dept":"기술연구소","qty":1,"user":"임승민","price":22.00,"total":22.00},
+            {"no":24,"type":"개인","program":"Github Copilot","version":"-","usage":"바이브 코딩/개발","dept":"기술연구소","qty":1,"user":"양인철","price":22.00,"total":22.00},
+            {"no":25,"type":"개인","program":"Github Copilot","version":"-","usage":"바이브 코딩/개발","dept":"기술연구소","qty":1,"user":"추희철","price":22.00,"total":22.00},
+            {"no":26,"type":"개인","program":"ChatGPT","version":"-","usage":"바이브 코딩/개발","dept":"기술연구소","qty":1,"user":"김홍희","price":22.00,"total":22.00},
+            {"no":27,"type":"개인","program":"Claude","version":"Pro","usage":"바이브 코딩/개발","dept":"기술연구소","qty":1,"user":"윤동수","price":22.00,"total":22.00},
+            {"no":28,"type":"개인","program":"Claude","version":"Pro","usage":"바이브 코딩/개발","dept":"기술연구소","qty":1,"user":"김지연","price":22.00,"total":22.00},
+            {"no":29,"type":"개인","program":"Google Antigravity CLI","version":"-","usage":"바이브 코딩/개발","dept":"기술연구소","qty":1,"user":"김주현","price":22.00,"total":22.00},
+            {"no":30,"type":"개인","program":"Claude","version":"Pro","usage":"바이브 코딩/개발","dept":"기술연구소","qty":1,"user":"김지은","price":22.00,"total":22.00},
+            {"no":31,"type":"개인","program":"Claude","version":"Pro","usage":"바이브 코딩/개발","dept":"기술연구소","qty":1,"user":"김영주","price":22.00,"total":22.00}
         ];
 
+        let RAW_DATA = [...DEFAULT_DATA];
         let deptChartInstance = null;
         let toolChartInstance = null;
 
         window.onload = function() {
-            initFilters();
-            renderData();
+            // 저장된 구글 시트 URL 복원
+            const savedUrl = localStorage.getItem('googleSheetCsvUrl');
+            if(savedUrl) {
+                document.getElementById('sheetUrlInput').value = savedUrl;
+                fetchSheetData();
+            } else {
+                initFilters();
+                renderData();
+            }
         };
+
+        function saveSheetUrl() {
+            const url = document.getElementById('sheetUrlInput').value.trim();
+            if(!url) {
+                alert('구글 시트 CSV 주소를 입력해주세요.');
+                return;
+            }
+            localStorage.setItem('googleSheetCsvUrl', url);
+            fetchSheetData();
+        }
+
+        // 구글 시트에서 실시간 데이터 파싱 및 로드
+        function fetchSheetData() {
+            const sheetUrl = localStorage.getItem('googleSheetCsvUrl') || document.getElementById('sheetUrlInput').value.trim();
+            if (!sheetUrl) {
+                initFilters();
+                renderData();
+                return;
+            }
+
+            document.getElementById('loadingSpinner').classList.remove('hidden');
+
+            Papa.parse(sheetUrl, {
+                download: true,
+                header: true,
+                skipEmptyLines: true,
+                complete: function(results) {
+                    document.getElementById('loadingSpinner').classList.add('hidden');
+                    if(results.data && results.data.length > 0) {
+                        RAW_DATA = results.data.map((row, idx) => {
+                            const qty = parseInt(row['수량'] || row['qty'] || 1) || 1;
+                            const price = parseFloat((row['단가'] || row['price'] || 0).toString().replace(/[^0-9.]/g, '')) || 0;
+                            const total = parseFloat((row['총액'] || row['total'] || (qty * price)).toString().replace(/[^0-9.]/g, '')) || (qty * price);
+
+                            return {
+                                no: parseInt(row['No.'] || row['no'] || (idx + 1)),
+                                type: row['구분'] || row['type'] || '개인',
+                                program: row['프로그램명'] || row['program'] || '-',
+                                version: row['버전'] || row['version'] || '-',
+                                dept: row['본부'] || row['dept'] || '미분류',
+                                user: row['사용자'] || row['user'] || '-',
+                                usage: row['사용용도'] || row['usage'] || '-',
+                                qty: qty,
+                                price: price,
+                                total: total
+                            };
+                        });
+                        initFilters();
+                        renderData();
+                    }
+                },
+                error: function(err) {
+                    document.getElementById('loadingSpinner').classList.add('hidden');
+                    alert('구글 시트 데이터를 불러오는데 실패했습니다. URL 및 웹 게시 설정을 확인해 주세요.');
+                }
+            });
+        }
 
         function initFilters() {
             const deptSelect = document.getElementById('deptFilter');
             const programSelect = document.getElementById('programFilter');
 
+            const currentDept = deptSelect.value;
+            const currentProgram = programSelect.value;
+
             const depts = [...new Set(RAW_DATA.map(d => d.dept))].filter(Boolean);
             const programs = [...new Set(RAW_DATA.map(d => d.program))].filter(Boolean);
 
-            // 기존 옵션 유지 후 추가
             deptSelect.innerHTML = '<option value="">전체 본부</option>';
             programSelect.innerHTML = '<option value="">전체 프로그램</option>';
 
@@ -286,6 +387,9 @@
                 opt.textContent = p;
                 programSelect.appendChild(opt);
             });
+
+            deptSelect.value = currentDept;
+            programSelect.value = currentProgram;
         }
 
         function renderData() {
@@ -376,7 +480,6 @@
                 toolData[d.program] = (toolData[d.program] || 0) + d.qty;
             });
 
-            // 내림차순 정렬
             const sortedTools = Object.entries(toolData).sort((a, b) => b[1] - a[1]);
             const sortedToolLabels = sortedTools.map(item => item[0]);
             const sortedToolValues = sortedTools.map(item => item[1]);
@@ -384,7 +487,6 @@
             if(deptChartInstance) deptChartInstance.destroy();
             if(toolChartInstance) toolChartInstance.destroy();
 
-            // Tool Bar Chart (수량 내림차순 정렬 + 클릭 이벤트 추가)
             const ctx2 = document.getElementById('toolChart').getContext('2d');
             toolChartInstance = new Chart(ctx2, {
                 type: 'bar',
@@ -404,17 +506,16 @@
                     onClick: (evt, activeElements) => {
                         if (activeElements.length > 0) {
                             const index = activeElements[0].index;
-                            const clickedProgram = sortedToolLabels[index]; // 내림차순 정렬된 라벨에서 정확한 이름 추출
+                            const clickedProgram = sortedToolLabels[index];
 
                             const programSelect = document.getElementById('programFilter');
-                            programSelect.value = clickedProgram; // 해당 필터 선택
-                            renderData(); // 화면 전체 다시 렌더링
+                            programSelect.value = clickedProgram;
+                            renderData();
                         }
                     }
                 }
             });
 
-            // Dept Pie Chart
             const ctx1 = document.getElementById('deptChart').getContext('2d');
             deptChartInstance = new Chart(ctx1, {
                 type: 'doughnut',
