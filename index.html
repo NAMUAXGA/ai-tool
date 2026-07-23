@@ -1,296 +1,606 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>전사 AI Tool 구독 현황 대시보드</title>
-  <!-- Bootstrap 5 CSS -->
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-  <!-- Chart.js -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <!-- PapaParse (CSV 파싱용) -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
-  <style>
-    body { background-color: #f8f9fa; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-    .card { border: none; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
-    .stat-card { border-left: 5px solid #0d6efd; }
-    .stat-card-total { border-left-color: #198754; }
-    .table-responsive { max-height: 500px; overflow-y: auto; }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>전사 AI Tool 구독 현황 대시보드</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- PapaParse CDN (CSV 파싱용) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
-<body>
+<body class="bg-slate-50 text-slate-800 min-h-screen">
 
-<div class="container py-4">
-  <h2 class="fw-bold mb-4">📊 전사 AI Tool 구독 현황 대시보드</h2>
-
-  <!-- 1. 구글 시트 CSV 연동 설정 영역 -->
-  <div class="card p-3 mb-4 bg-white">
-    <label for="csvUrlInput" class="form-label fw-bold">🔗 구글 시트 CSV URL 연동</label>
-    <div class="input-group">
-      <input type="text" id="csvUrlInput" class="form-control" placeholder="https://docs.google.com/spreadsheets/d/e/.../pub?output=csv">
-      <button class="btn btn-primary" onclick="saveAndFetchUrl()">연동하기</button>
-      <button class="btn btn-outline-secondary" onclick="resetUrl()">초기화</button>
-    </div>
-    <div class="form-text mt-1">구글 시트 > [파일] > [공유] > [웹에 게시] > <b>쉼표로 구분된 값(.csv)</b> 링크를 입력해 주세요.</div>
-  </div>
-
-  <!-- 2. 요약 카드 (KPI) -->
-  <div class="row g-3 mb-4">
-    <div class="col-md-6">
-      <div class="card p-3 stat-card bg-white">
-        <span class="text-muted fw-bold">총 구독 항목 수</span>
-        <h3 class="fw-bold my-1" id="totalCount">0 건</h3>
-      </div>
-    </div>
-    <div class="col-md-6">
-      <div class="card p-3 stat-card stat-card-total bg-white">
-        <span class="text-muted fw-bold">총 월간 비용</span>
-        <h3 class="fw-bold my-1 text-success" id="totalCost">0 원</h3>
-      </div>
-    </div>
-  </div>
-
-  <!-- 3. 차트 영역 (부활!) -->
-  <div class="row g-3 mb-4">
-    <div class="col-md-6">
-      <div class="card p-3 bg-white">
-        <h6 class="fw-bold mb-3">🏢 본부별 AI Tool 사용 건수</h6>
-        <div style="position: relative; height:250px;">
-          <canvas id="deptChart"></canvas>
+    <!-- Navigation Header -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-30">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="bg-indigo-600 text-white p-2 rounded-lg font-bold">
+                    <i class="fa-solid me-1 fa-robot"></i> AI
+                </div>
+                <div>
+                    <h1 class="text-lg font-bold text-slate-900 leading-tight">전사 AI Tool 구독 현황</h1>
+                    <p class="text-xs text-slate-500 flex items-center gap-1">
+                        <span class="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                        Google Sheets 실시간 연동 대시보드
+                    </p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <button onclick="fetchSheetData()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm px-3 py-2 rounded-lg font-medium transition flex items-center gap-1.5 border border-slate-200">
+                    <i class="fa-solid fa-rotate text-xs"></i> 새로고침
+                </button>
+                <button onclick="openAddModal()" class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm px-3 py-2 rounded-lg font-medium transition flex items-center gap-1 shadow-sm">
+                    <i class="fa-solid fa-plus text-xs"></i> 항목 추가
+                </button>
+            </div>
         </div>
-      </div>
-    </div>
-    <div class="col-md-6">
-      <div class="card p-3 bg-white">
-        <h6 class="fw-bold mb-3">🛠️ 주요 프로그램별 구독 건수</h6>
-        <div style="position: relative; height:250px;">
-          <canvas id="toolChart"></canvas>
+    </header>
+
+    <!-- Main Container -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+
+        <!-- Filter & Search Bar -->
+        <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-wrap gap-3 items-center justify-between">
+            <div class="flex flex-wrap items-center gap-2.5 w-full md:w-auto">
+                <!-- 1. 본부 필터 -->
+                <select id="deptFilter" onchange="renderData()" class="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    <option value="">전체 본부</option>
+                </select>
+
+                <!-- 2. 구분 필터 -->
+                <select id="typeFilter" onchange="renderData()" class="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    <option value="">전체 구분</option>
+                    <option value="개인">개인</option>
+                    <option value="팀">팀</option>
+                    <option value="공용">공용</option>
+                </select>
+
+                <!-- 3. 프로그램 필터 -->
+                <select id="programFilter" onchange="renderData()" class="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    <option value="">전체 프로그램</option>
+                </select>
+
+                <!-- 4. 사용자명/검색어 입력 -->
+                <div class="relative flex-1 md:w-56">
+                    <input type="text" id="searchInput" oninput="renderData()" placeholder="사용자명 검색" 
+                           class="w-full pl-3 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+            </div>
+
+            <div class="text-xs text-slate-500 font-medium flex items-center gap-2">
+                <span id="loadingSpinner" class="hidden text-indigo-600"><i class="fa-solid fa-spinner fa-spin"></i> 로딩 중...</span>
+                <span>조회결과: <strong id="filtered-count" class="text-indigo-600 text-sm">0</strong>건</span>
+            </div>
         </div>
-      </div>
+
+        <!-- Google Sheet URL Configuration Banner -->
+        <div id="sheetUrlConfig" class="bg-indigo-50 border border-indigo-200 rounded-xl p-4 shadow-sm">
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                <div class="flex items-start gap-3">
+                    <div class="p-2 bg-indigo-100 text-indigo-600 rounded-lg shrink-0">
+                        <i class="fa-solid fa-link text-lg"></i>
+                    </div>
+                    <div>
+                        <h4 class="text-sm font-bold text-indigo-950">구글 시트 게시(CSV) URL 설정</h4>
+                        <p class="text-xs text-indigo-700 mt-0.5">
+                            구글 시트의 <b>[파일] > [공유] > [웹에 게시] > [쉼표로 구분된 값(.csv)]</b> 주소를 입력하세요.
+                        </p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2 w-full md:w-auto">
+                    <input type="text" id="sheetUrlInput" placeholder="https://docs.google.com/.../pub?output=csv" 
+                           class="w-full md:w-80 px-3 py-2 bg-white border border-indigo-200 rounded-lg text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    <button onclick="saveSheetUrl()" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs px-4 py-2 rounded-lg font-semibold shrink-0 transition">
+                        연동하기
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- KPI Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-medium text-slate-500">활성 라이선스 건수</p>
+                    <h2 id="kpi-total-count" class="text-2xl font-extrabold text-slate-900 mt-1">0건</h2>
+                </div>
+                <div class="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-lg flex items-center justify-center text-xl">
+                    <i class="fa-solid fa-list-check"></i>
+                </div>
+            </div>
+
+            <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-medium text-slate-500">월 총 구독 비용</p>
+                    <h2 id="kpi-total-cost" class="text-2xl font-extrabold text-emerald-600 mt-1">$0.00</h2>
+                </div>
+                <div class="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-lg flex items-center justify-center text-xl">
+                    <i class="fa-solid fa-dollar-sign"></i>
+                </div>
+            </div>
+
+            <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-medium text-slate-500">최대 이용 본부</p>
+                    <h2 id="kpi-top-dept" class="text-2xl font-extrabold text-slate-900 mt-1">-</h2>
+                </div>
+                <div class="w-12 h-12 bg-blue-50 text-blue-600 rounded-lg flex items-center justify-center text-xl">
+                    <i class="fa-solid fa-building"></i>
+                </div>
+            </div>
+
+            <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-medium text-slate-500">인기 AI Tool</p>
+                    <h2 id="kpi-top-tool" class="text-2xl font-extrabold text-slate-900 mt-1">-</h2>
+                </div>
+                <div class="w-12 h-12 bg-purple-50 text-purple-600 rounded-lg flex items-center justify-center text-xl">
+                    <i class="fa-solid fa-wand-magic-sparkles"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- Charts Section -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <!-- 프로그램별 이용 인원수 (막대 차트) -->
+            <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+                <h3 class="text-sm font-bold text-slate-800 mb-1 flex items-center gap-2">
+                    <i class="fa-solid fa-chart-column text-indigo-500"></i> 프로그램별 이용 인원수
+                </h3>
+                <p class="text-xs text-slate-400 mb-4">요금제 구분 없이 프로그램 대부분 기준, 중복 제거된 이용자 수 (막대 클릭 시 필터 적용)</p>
+                <div class="relative h-64">
+                    <canvas id="toolChart"></canvas>
+                </div>
+            </div>
+
+            <!-- 본부별 AI 비용 지출 비중 (도넛 차트) -->
+            <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+                <h3 class="text-sm font-bold text-slate-800 mb-1 flex items-center gap-2">
+                    <i class="fa-solid fa-chart-pie text-indigo-500"></i> 본부별 AI 비용 지출 비중
+                </h3>
+                <p class="text-xs text-slate-400 mb-4">본부별 월 구독 비용 총액 합계 비율</p>
+                <div class="relative h-64">
+                    <canvas id="deptChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Data Table -->
+        <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm whitespace-nowrap">
+                    <thead class="bg-slate-100 text-slate-600 font-semibold border-b border-slate-200 uppercase text-xs">
+                        <tr>
+                            <th class="py-3 px-4">No.</th>
+                            <th class="py-3 px-4">구분</th>
+                            <th class="py-3 px-4">프로그램명</th>
+                            <th class="py-3 px-4">버전</th>
+                            <th class="py-3 px-4">본부</th>
+                            <th class="py-3 px-4">사용자</th>
+                            <th class="py-3 px-4">사용용도</th>
+                            <th class="py-3 px-4">수량</th>
+                            <th class="py-3 px-4">단가</th>
+                            <th class="py-3 px-4">총액</th>
+                            <th class="py-3 px-4 text-center">관리</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody" class="divide-y divide-slate-100">
+                        <!-- Dynamic Rows -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <!-- Modal for Edit / Add -->
+    <div id="dataModal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-xl border border-slate-200 max-w-lg w-full overflow-hidden">
+            <div class="px-6 py-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
+                <h3 id="modalTitle" class="font-bold text-slate-900">구독 정보 추가/수정</h3>
+                <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <form id="dataForm" onsubmit="saveData(event)" class="p-6 space-y-4">
+                <input type="hidden" id="editIndex">
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="text-xs font-semibold text-slate-600 mb-1 block">구분</label>
+                        <select id="modalType" class="w-full border border-slate-200 rounded-lg p-2 text-sm">
+                            <option value="개인">개인</option>
+                            <option value="팀">팀</option>
+                            <option value="공용">공용</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-xs font-semibold text-slate-600 mb-1 block">프로그램명</label>
+                        <input type="text" id="modalProgram" required class="w-full border border-slate-200 rounded-lg p-2 text-sm">
+                    </div>
+                    <div>
+                        <label class="text-xs font-semibold text-slate-600 mb-1 block">버전</label>
+                        <input type="text" id="modalVersion" class="w-full border border-slate-200 rounded-lg p-2 text-sm">
+                    </div>
+                    <div>
+                        <label class="text-xs font-semibold text-slate-600 mb-1 block">본부</label>
+                        <input type="text" id="modalDept" required class="w-full border border-slate-200 rounded-lg p-2 text-sm">
+                    </div>
+                    <div>
+                        <label class="text-xs font-semibold text-slate-600 mb-1 block">수량</label>
+                        <input type="number" id="modalQty" required min="1" class="w-full border border-slate-200 rounded-lg p-2 text-sm">
+                    </div>
+                    <div>
+                        <label class="text-xs font-semibold text-slate-600 mb-1 block">단가 ($)</label>
+                        <input type="number" id="modalPrice" required step="0.01" class="w-full border border-slate-200 rounded-lg p-2 text-sm">
+                    </div>
+                </div>
+                <div>
+                    <label class="text-xs font-semibold text-slate-600 mb-1 block">사용자</label>
+                    <input type="text" id="modalUser" required class="w-full border border-slate-200 rounded-lg p-2 text-sm">
+                </div>
+                <div>
+                    <label class="text-xs font-semibold text-slate-600 mb-1 block">사용용도</label>
+                    <input type="text" id="modalUsage" class="w-full border border-slate-200 rounded-lg p-2 text-sm">
+                </div>
+                <div class="flex justify-end gap-2 pt-4 border-t border-slate-100">
+                    <button type="button" onclick="closeModal()" class="px-4 py-2 border border-slate-200 rounded-lg text-sm text-slate-600 hover:bg-slate-50">취소</button>
+                    <button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700">저장</button>
+                </div>
+            </form>
+        </div>
     </div>
-  </div>
 
-  <!-- 4. 필터 및 검색 -->
-  <div class="card p-3 mb-4 bg-white">
-    <div class="row g-2">
-      <div class="col-md-4">
-        <input type="text" id="searchInput" class="form-control" placeholder="프로그램명 / 사용자 / 용도 검색..." onkeyup="filterData()">
-      </div>
-      <div class="col-md-4">
-        <select id="deptFilter" class="form-select" onchange="filterData()">
-          <option value="">전체 본부 보기</option>
-        </select>
-      </div>
-      <div class="col-md-4">
-        <select id="toolFilter" class="form-select" onchange="filterData()">
-          <option value="">전체 프로그램 보기</option>
-        </select>
-      </div>
-    </div>
-  </div>
+    <!-- Script Section -->
+    <script>
+        let DEFAULT_DATA = [
+            {"no":1,"type":"개인","program":"Claude","version":"Pro","usage":"바이브 코딩/개발","dept":"클라우드연구소","qty":1,"user":"정지웅","price":20.00,"total":20.00},
+            {"no":2,"type":"개인","program":"Claude","version":"Max","usage":"바이브 코딩/개발","dept":"클라우드연구소","qty":1,"user":"염규원","price":100.00,"total":100.00},
+            {"no":3,"type":"개인","program":"Claude","version":"Pro","usage":"바이브 코딩/개발","dept":"클라우드연구소","qty":1,"user":"소수영","price":20.00,"total":20.00},
+            {"no":4,"type":"개인","program":"Claude","version":"Max","usage":"바이브 코딩/개발","dept":"클라우드연구소","qty":1,"user":"선인장","price":100.00,"total":100.00},
+            {"no":5,"type":"개인","program":"Claude","version":"Pro","usage":"바이브 코딩/개발","dept":"클라우드연구소","qty":1,"user":"박건태","price":20.00,"total":20.00},
+            {"no":6,"type":"개인","program":"Claude","version":"Pro","usage":"바이브 코딩/개발","dept":"클라우드연구소","qty":1,"user":"양민영","price":20.00,"total":20.00},
+            {"no":7,"type":"팀","program":"Claude","version":"TEAM","usage":"바이브 코딩","dept":"영업1본부","qty":1,"user":"배준열","price":25.00,"total":25.00},
+            {"no":8,"type":"팀","program":"Claude","version":"TEAM","usage":"바이브 코딩","dept":"영업1본부","qty":1,"user":"이훈","price":25.00,"total":25.00},
+            {"no":9,"type":"팀","program":"Claude","version":"TEAM","usage":"바이브 코딩","dept":"영업1본부","qty":1,"user":"서대률","price":25.00,"total":25.00},
+            {"no":10,"type":"팀","program":"Claude","version":"TEAM","usage":"바이브 코딩","dept":"영업1본부","qty":1,"user":"김현국","price":25.00,"total":25.00},
+            {"no":11,"type":"팀","program":"Claude","version":"TEAM","usage":"바이브 코딩","dept":"영업지원팀","qty":1,"user":"김지선","price":25.00,"total":25.00},
+            {"no":12,"type":"개인","program":"Claude Code","version":"MAX100","usage":"개발 어시스턴트","dept":"AI본부","qty":6,"user":"고우주, 김형진, 이정훈, 양성민, 조건호, 김승혁","price":100.00,"total":600.00},
+            {"no":13,"type":"공용","program":"Claude Code","version":"MAX200","usage":"개발 어시스턴트","dept":"AI본부","qty":1,"user":"김형진","price":200.00,"total":200.00},
+            {"no":14,"type":"공용","program":"CodeRabbit","version":"Lite","usage":"개발 어시스턴트","dept":"AI본부","qty":1,"user":"이정훈","price":15.00,"total":15.00},
+            {"no":15,"type":"공용","program":"ChatGPT","version":"Plus","usage":"업무 및 개발 어시스턴트","dept":"AI본부","qty":1,"user":"오희진","price":20.00,"total":20.00},
+            {"no":16,"type":"공용","program":"Figma","version":"Full","usage":"프론트, 디자인, 기획","dept":"AI본부","qty":1,"user":"양성민","price":20.00,"total":20.00},
+            {"no":17,"type":"공용","program":"Claude","version":"Pro","usage":"업무 및 리서치용","dept":"AI본부","qty":1,"user":"조건호","price":20.00,"total":20.00},
+            {"no":18,"type":"개인","program":"Gemini","version":"Pro","usage":"업무용","dept":"기술1본부","qty":1,"user":"이민우, 허윤석, 지병천, 이효정, 이찬용","price":20.00,"total":20.00},
+            {"no":19,"type":"개인","program":"Gemini","version":"Pro","usage":"업무용","dept":"기술1본부","qty":1,"user":"정창남, 신성호, 염강건, 정다인, 최윤희","price":20.00,"total":20.00},
+            {"no":20,"type":"개인","program":"Gemini","version":"Pro","usage":"업무용","dept":"기술1본부","qty":1,"user":"정광훈, 서호진, 안윤상, 이창훈, 이의현","price":20.00,"total":20.00},
+            {"no":21,"type":"개인","program":"Gemini","version":"Pro","usage":"업무용","dept":"기술1본부","qty":1,"user":"이을범, 박진협, 최성구, 성준호, 정요안","price":20.00,"total":20.00},
+            {"no":22,"type":"개인","program":"Claude","version":"Pro","usage":"바이브 코딩/개발","dept":"기술연구소","qty":1,"user":"김정재","price":22.00,"total":22.00},
+            {"no":23,"type":"개인","program":"Claude","version":"Pro","usage":"바이브 코딩/개발","dept":"기술연구소","qty":1,"user":"임승민","price":22.00,"total":22.00},
+            {"no":24,"type":"개인","program":"Github Copilot","version":"-","usage":"바이브 코딩/개발","dept":"기술연구소","qty":1,"user":"양인철","price":22.00,"total":22.00},
+            {"no":25,"type":"개인","program":"Github Copilot","version":"-","usage":"바이브 코딩/개발","dept":"기술연구소","qty":1,"user":"추희철","price":22.00,"total":22.00},
+            {"no":26,"type":"개인","program":"ChatGPT","version":"-","usage":"바이브 코딩/개발","dept":"기술연구소","qty":1,"user":"김홍희","price":22.00,"total":22.00},
+            {"no":27,"type":"개인","program":"Claude","version":"Pro","usage":"바이브 코딩/개발","dept":"기술연구소","qty":1,"user":"윤동수","price":22.00,"total":22.00},
+            {"no":28,"type":"개인","program":"Claude","version":"Pro","usage":"바이브 코딩/개발","dept":"기술연구소","qty":1,"user":"김지연","price":22.00,"total":22.00},
+            {"no":29,"type":"개인","program":"Google Antigravity CLI","version":"-","usage":"바이브 코딩/개발","dept":"기술연구소","qty":1,"user":"김주현","price":22.00,"total":22.00},
+            {"no":30,"type":"개인","program":"Claude","version":"Pro","usage":"바이브 코딩/개발","dept":"기술연구소","qty":1,"user":"김지은","price":22.00,"total":22.00},
+            {"no":31,"type":"개인","program":"Claude","version":"Pro","usage":"바이브 코딩/개발","dept":"기술연구소","qty":1,"user":"김영주","price":22.00,"total":22.00}
+        ];
 
-  <!-- 5. 데이터 테이블 -->
-  <div class="card p-3 bg-white">
-    <div class="table-responsive">
-      <table class="table table-hover align-middle" id="dataTable">
-        <thead class="table-light sticky-top">
-          <tr>
-            <th>No.</th>
-            <th>구분</th>
-            <th>프로그램명</th>
-            <th>버전</th>
-            <th>본부</th>
-            <th>사용자</th>
-            <th>사용용도</th>
-            <th>수량</th>
-            <th>단가</th>
-            <th>총액</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td colspan="10" class="text-center py-4 text-muted">데이터를 불러오는 중이거나 URL이 설정되지 않았습니다.</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-  </div>
-</div>
+        let RAW_DATA = [...DEFAULT_DATA];
+        let deptChartInstance = null;
+        let toolChartInstance = null;
 
-<script>
-  let rawData = [];
-  let deptChartObj = null;
-  let toolChartObj = null;
+        window.onload = function() {
+            const savedUrl = localStorage.getItem('googleSheetCsvUrl');
+            if(savedUrl) {
+                document.getElementById('sheetUrlInput').value = savedUrl;
+                fetchSheetData();
+            } else {
+                initFilters();
+                renderData();
+            }
+        };
 
-  // 페이지 로드 시 저장된 URL 불러오기
-  window.onload = function() {
-    const savedUrl = localStorage.getItem('googleSheetCsvUrl');
-    if (savedUrl) {
-      document.getElementById('csvUrlInput').value = savedUrl;
-      fetchCsvData(savedUrl);
-    }
-  };
+        function saveSheetUrl() {
+            const url = document.getElementById('sheetUrlInput').value.trim();
+            if(!url) {
+                alert('구글 시트 CSV 주소를 입력해주세요.');
+                return;
+            }
+            localStorage.setItem('googleSheetCsvUrl', url);
+            fetchSheetData();
+        }
 
-  function saveAndFetchUrl() {
-    const url = document.getElementById('csvUrlInput').value.trim();
-    if (!url) {
-      alert('URL을 입력해 주세요.');
-      return;
-    }
-    localStorage.setItem('googleSheetCsvUrl', url);
-    fetchCsvData(url);
-  }
+        function fetchSheetData() {
+            const sheetUrl = localStorage.getItem('googleSheetCsvUrl') || document.getElementById('sheetUrlInput').value.trim();
+            if (!sheetUrl) {
+                initFilters();
+                renderData();
+                return;
+            }
 
-  function resetUrl() {
-    localStorage.removeItem('googleSheetCsvUrl');
-    document.getElementById('csvUrlInput').value = '';
-    location.reload();
-  }
+            document.getElementById('loadingSpinner').classList.remove('hidden');
 
-  function fetchCsvData(url) {
-    Papa.parse(url, {
-      download: true,
-      header: true,
-      skipEmptyLines: true,
-      complete: function(results) {
-        rawData = results.data;
-        initFilters();
-        renderDashboard(rawData);
-      },
-      error: function(err) {
-        alert('CSV 데이터를 불러오는 데 실패했습니다. URL을 확인해 주세요.');
-        console.error(err);
-      }
-    });
-  }
+            Papa.parse(sheetUrl, {
+                download: true,
+                header: true,
+                skipEmptyLines: true,
+                complete: function(results) {
+                    document.getElementById('loadingSpinner').classList.add('hidden');
+                    if(results.data && results.data.length > 0) {
+                        RAW_DATA = results.data.map((row, idx) => {
+                            const qty = parseInt(row['수량'] || row['qty'] || 1) || 1;
+                            const price = parseFloat((row['단가'] || row['price'] || 0).toString().replace(/[^0-9.]/g, '')) || 0;
+                            const total = parseFloat((row['총액'] || row['total'] || (qty * price)).toString().replace(/[^0-9.]/g, '')) || (qty * price);
 
-  function initFilters() {
-    const depts = new Set();
-    const tools = new Set();
+                            return {
+                                no: parseInt(row['No.'] || row['no'] || (idx + 1)),
+                                type: row['구분'] || row['type'] || '개인',
+                                program: row['프로그램명'] || row['program'] || '-',
+                                version: row['버전'] || row['version'] || '-',
+                                dept: row['본부'] || row['dept'] || '미분류',
+                                user: row['사용자'] || row['user'] || '-',
+                                usage: row['사용용도'] || row['usage'] || '-',
+                                qty: qty,
+                                price: price,
+                                total: total
+                            };
+                        });
+                        initFilters();
+                        renderData();
+                    }
+                },
+                error: function(err) {
+                    document.getElementById('loadingSpinner').classList.add('hidden');
+                    alert('구글 시트 데이터를 불러오는데 실패했습니다.');
+                }
+            });
+        }
 
-    rawData.forEach(row => {
-      if(row['본부']) depts.add(row['본부'].trim());
-      if(row['프로그램명']) tools.add(row['프로그램명'].trim());
-    });
+        function initFilters() {
+            const deptSelect = document.getElementById('deptFilter');
+            const programSelect = document.getElementById('programFilter');
 
-    const deptSelect = document.getElementById('deptFilter');
-    const toolSelect = document.getElementById('toolFilter');
+            const currentDept = deptSelect.value;
+            const currentProgram = programSelect.value;
 
-    deptSelect.innerHTML = '<option value="">전체 본부 보기</option>';
-    toolSelect.innerHTML = '<option value="">전체 프로그램 보기</option>';
+            const depts = [...new Set(RAW_DATA.map(d => d.dept))].filter(Boolean);
+            const programs = [...new Set(RAW_DATA.map(d => d.program))].filter(Boolean);
 
-    depts.forEach(d => deptSelect.innerHTML += `<option value="${d}">${d}</option>`);
-    tools.forEach(t => toolSelect.innerHTML += `<option value="${t}">${t}</option>`);
-  }
+            deptSelect.innerHTML = '<option value="">전체 본부</option>';
+            programSelect.innerHTML = '<option value="">전체 프로그램</option>';
 
-  function filterData() {
-    const search = document.getElementById('searchInput').value.toLowerCase();
-    const selectedDept = document.getElementById('deptFilter').value;
-    const selectedTool = document.getElementById('toolFilter').value;
+            depts.forEach(d => {
+                const opt = document.createElement('option');
+                opt.value = d;
+                opt.textContent = d;
+                deptSelect.appendChild(opt);
+            });
 
-    const filtered = rawData.filter(row => {
-      const matchSearch = Object.values(row).some(val => String(val).toLowerCase().includes(search));
-      const matchDept = !selectedDept || (row['본부'] && row['본부'].trim() === selectedDept);
-      const matchTool = !selectedTool || (row['프로그램명'] && row['프로그램명'].trim() === selectedTool);
-      return matchSearch && matchDept && matchTool;
-    });
+            programs.forEach(p => {
+                const opt = document.createElement('option');
+                opt.value = p;
+                opt.textContent = p;
+                programSelect.appendChild(opt);
+            });
 
-    renderDashboard(filtered);
-  }
+            deptSelect.value = currentDept;
+            programSelect.value = currentProgram;
+        }
 
-  function renderDashboard(data) {
-    renderTable(data);
-    renderStats(data);
-    renderCharts(data);
-  }
+        function renderData() {
+            const search = document.getElementById('searchInput').value.toLowerCase();
+            const dept = document.getElementById('deptFilter').value;
+            const type = document.getElementById('typeFilter').value;
+            const program = document.getElementById('programFilter').value;
 
-  function renderTable(data) {
-    const tbody = document.querySelector('#dataTable tbody');
-    tbody.innerHTML = '';
+            const filtered = RAW_DATA.filter(item => {
+                const matchesSearch = item.user.toLowerCase().includes(search) || 
+                                      item.usage.toLowerCase().includes(search) ||
+                                      item.program.toLowerCase().includes(search);
+                const matchesDept = !dept || item.dept === dept;
+                const matchesType = !type || item.type === type;
+                const matchesProgram = !program || item.program === program;
 
-    if (data.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="10" class="text-center py-4 text-muted">검색 결과가 없습니다.</td></tr>';
-      return;
-    }
+                return matchesSearch && matchesDept && matchesType && matchesProgram;
+            });
 
-    data.forEach((row, idx) => {
-      const tr = document.createElement('tr');
-      tr.innerHTML = `
-        <td>${row['No.'] || idx + 1}</td>
-        <td>${row['구분'] || ''}</td>
-        <td class="fw-bold">${row['프로그램명'] || ''}</td>
-        <td>${row['버전'] || ''}</td>
-        <td>${row['본부'] || ''}</td>
-        <td>${row['사용자'] || ''}</td>
-        <td>${row['사용용도'] || ''}</td>
-        <td>${row['수량'] || ''}</td>
-        <td>${row['단가'] || ''}</td>
-        <td class="fw-bold text-primary">${row['총액'] || ''}</td>
-      `;
-      tbody.appendChild(tr);
-    });
-  }
+            const tbody = document.getElementById('tableBody');
+            tbody.innerHTML = '';
 
-  function renderStats(data) {
-    document.getElementById('totalCount').innerText = `${data.length} 건`;
+            filtered.forEach((item) => {
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-slate-50 border-b border-slate-100 transition";
+                tr.innerHTML = `
+                    <td class="py-3 px-4 font-mono text-xs text-slate-400">${item.no}</td>
+                    <td class="py-3 px-4"><span class="inline-block px-2.5 py-1 rounded text-xs font-semibold whitespace-nowrap ${getTypeBadgeClass(item.type)}">${item.type}</span></td>
+                    <td class="py-3 px-4 font-semibold text-slate-900">${item.program}</td>
+                    <td class="py-3 px-4 text-xs text-slate-500">${item.version || '-'}</td>
+                    <td class="py-3 px-4 text-xs">${item.dept}</td>
+                    <td class="py-3 px-4 text-xs text-slate-700 max-w-xs truncate" title="${item.user}">${item.user}</td>
+                    <td class="py-3 px-4 text-xs text-slate-500">${item.usage}</td>
+                    <td class="py-3 px-4 text-xs font-mono">${item.qty}</td>
+                    <td class="py-3 px-4 text-xs font-mono">$${item.price.toFixed(2)}</td>
+                    <td class="py-3 px-4 text-xs font-mono font-bold text-emerald-600">$${item.total.toFixed(2)}</td>
+                    <td class="py-3 px-4 text-center">
+                        <div class="flex justify-center gap-1">
+                            <button onclick="editData(${item.no})" class="p-1 text-slate-400 hover:text-indigo-600 text-xs"><i class="fa-solid fa-pen"></i></button>
+                            <button onclick="deleteData(${item.no})" class="p-1 text-slate-400 hover:text-red-600 text-xs"><i class="fa-solid fa-trash"></i></button>
+                        </div>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
 
-    let totalSum = 0;
-    data.forEach(row => {
-      if (row['총액']) {
-        const num = parseInt(String(row['총액']).replace(/[^0-9]/g, ''), 10);
-        if (!isNaN(num)) totalSum += num;
-      }
-    });
+            document.getElementById('filtered-count').innerText = filtered.length;
 
-    document.getElementById('totalCost').innerText = totalSum.toLocaleString() + ' 원';
-  }
+            updateKPIs(filtered);
+            updateCharts(filtered);
+        }
 
-  function renderCharts(data) {
-    // 본부별 카운트
-    const deptCounts = {};
-    // 프로그램별 카운트
-    const toolCounts = {};
+        function getTypeBadgeClass(type) {
+            if(type === '개인') return 'bg-blue-50 text-blue-600';
+            if(type === '팀') return 'bg-amber-50 text-amber-600';
+            return 'bg-purple-50 text-purple-600';
+        }
 
-    data.forEach(row => {
-      const dept = row['본부'] ? row['본부'].trim() : '미지정';
-      const tool = row['프로그램명'] ? row['프로그램명'].trim() : '기타';
+        function updateKPIs(data) {
+            const totalCount = data.length;
+            const totalCost = data.reduce((acc, curr) => acc + curr.total, 0);
 
-      deptCounts[dept] = (deptCounts[dept] || 0) + 1;
-      toolCounts[tool] = (toolCounts[tool] || 0) + 1;
-    });
+            const deptCosts = {};
+            const toolCounts = {};
 
-    // 1. 본부별 차트 (막대)
-    const ctxDept = document.getElementById('deptChart').getContext('2d');
-    if (deptChartObj) deptChartObj.destroy();
-    deptChartObj = new Chart(ctxDept, {
-      type: 'bar',
-      data: {
-        labels: Object.keys(deptCounts),
-        datasets: [{
-          label: '사용 건수',
-          data: Object.values(deptCounts),
-          backgroundColor: '#0d6efd'
-        }]
-      },
-      options: { responsive: true, maintainAspectRatio: false }
-    });
+            data.forEach(d => {
+                deptCosts[d.dept] = (deptCosts[d.dept] || 0) + d.total;
+                toolCounts[d.program] = (toolCounts[d.program] || 0) + d.qty;
+            });
 
-    // 2. 프로그램별 차트 (도넛)
-    const ctxTool = document.getElementById('toolChart').getContext('2d');
-    if (toolChartObj) toolChartObj.destroy();
-    toolChartObj = new Chart(ctxTool, {
-      type: 'doughnut',
-      data: {
-        labels: Object.keys(toolCounts),
-        datasets: [{
-          data: Object.values(toolCounts),
-          backgroundColor: ['#0d6efd', '#198754', '#ffc107', '#dc3545', '#0dcaf0', '#6c757d']
-        }]
-      },
-      options: { responsive: true, maintainAspectRatio: false }
-    });
-  }
-</script>
+            const topDept = Object.keys(deptCosts).reduce((a, b) => deptCosts[a] > deptCosts[b] ? a : b, '-');
+            const topTool = Object.keys(toolCounts).reduce((a, b) => toolCounts[a] > toolCounts[b] ? a : b, '-');
 
+            document.getElementById('kpi-total-count').innerText = totalCount + '건';
+            document.getElementById('kpi-total-cost').innerText = '$' + totalCost.toLocaleString('en-US', {minimumFractionDigits: 2});
+            document.getElementById('kpi-top-dept').innerText = topDept;
+            document.getElementById('kpi-top-tool').innerText = topTool;
+        }
+
+        function updateCharts(data) {
+            const deptData = {};
+            data.forEach(d => {
+                deptData[d.dept] = (deptData[d.dept] || 0) + d.total;
+            });
+
+            const toolData = {};
+            data.forEach(d => {
+                toolData[d.program] = (toolData[d.program] || 0) + d.qty;
+            });
+
+            const sortedTools = Object.entries(toolData).sort((a, b) => b[1] - a[1]);
+            const sortedToolLabels = sortedTools.map(item => item[0]);
+            const sortedToolValues = sortedTools.map(item => item[1]);
+
+            if(deptChartInstance) deptChartInstance.destroy();
+            if(toolChartInstance) toolChartInstance.destroy();
+
+            const ctx2 = document.getElementById('toolChart').getContext('2d');
+            toolChartInstance = new Chart(ctx2, {
+                type: 'bar',
+                data: {
+                    labels: sortedToolLabels,
+                    datasets: [{
+                        label: '구독 수량',
+                        data: sortedToolValues,
+                        backgroundColor: '#6366f1'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: { y: { beginAtZero: true } },
+                    onClick: (evt, activeElements) => {
+                        if (activeElements.length > 0) {
+                            const index = activeElements[0].index;
+                            const clickedProgram = sortedToolLabels[index];
+
+                            const programSelect = document.getElementById('programFilter');
+                            programSelect.value = clickedProgram;
+                            renderData();
+                        }
+                    }
+                }
+            });
+
+            const ctx1 = document.getElementById('deptChart').getContext('2d');
+            deptChartInstance = new Chart(ctx1, {
+                type: 'doughnut',
+                data: {
+                    labels: Object.keys(deptData),
+                    datasets: [{
+                        data: Object.values(deptData),
+                        backgroundColor: ['#6366f1', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#3b82f6']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'bottom' } }
+                }
+            });
+        }
+
+        function openAddModal() {
+            document.getElementById('modalTitle').innerText = '새 구독 정보 추가';
+            document.getElementById('editIndex').value = '';
+            document.getElementById('dataForm').reset();
+            document.getElementById('dataModal').classList.remove('hidden');
+        }
+
+        function closeModal() {
+            document.getElementById('dataModal').classList.add('hidden');
+        }
+
+        function editData(no) {
+            const item = RAW_DATA.find(d => d.no === no);
+            if(!item) return;
+
+            document.getElementById('modalTitle').innerText = '구독 정보 수정';
+            document.getElementById('editIndex').value = item.no;
+            document.getElementById('modalType').value = item.type;
+            document.getElementById('modalProgram').value = item.program;
+            document.getElementById('modalVersion').value = item.version;
+            document.getElementById('modalDept').value = item.dept;
+            document.getElementById('modalQty').value = item.qty;
+            document.getElementById('modalPrice').value = item.price;
+            document.getElementById('modalUser').value = item.user;
+            document.getElementById('modalUsage').value = item.usage;
+
+            document.getElementById('dataModal').classList.remove('hidden');
+        }
+
+        function saveData(e) {
+            e.preventDefault();
+            const editNo = document.getElementById('editIndex').value;
+            const qty = parseInt(document.getElementById('modalQty').value);
+            const price = parseFloat(document.getElementById('modalPrice').value);
+
+            const payload = {
+                type: document.getElementById('modalType').value,
+                program: document.getElementById('modalProgram').value,
+                version: document.getElementById('modalVersion').value,
+                dept: document.getElementById('modalDept').value,
+                qty: qty,
+                price: price,
+                total: qty * price,
+                user: document.getElementById('modalUser').value,
+                usage: document.getElementById('modalUsage').value
+            };
+
+            if(editNo) {
+                const idx = RAW_DATA.findIndex(d => d.no == editNo);
+                if(idx !== -1) {
+                    RAW_DATA[idx] = { ...RAW_DATA[idx], ...payload };
+                }
+            } else {
+                const newNo = RAW_DATA.length ? Math.max(...RAW_DATA.map(d => d.no)) + 1 : 1;
+                RAW_DATA.push({ no: newNo, ...payload });
+            }
+
+            initFilters();
+            closeModal();
+            renderData();
+        }
+
+        function deleteData(no) {
+            if(confirm('정말 삭제하시겠습니까?')) {
+                RAW_DATA = RAW_DATA.filter(d => d.no !== no);
+                initFilters();
+                renderData();
+            }
+        }
+    </script>
 </body>
 </html>
