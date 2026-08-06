@@ -108,10 +108,10 @@
             </div>
         </div>
 
-        <!-- 📈 월별(1월~12월) 본부별 지출비용 차트 -->
+        <!-- 📈 1. 월간 본부별 지출비용 추이 차트 -->
         <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
             <h3 class="text-sm font-bold text-slate-800 mb-1 flex items-center gap-2">
-                <i class="fa-solid fa-chart-line text-indigo-600"></i> 월별(1월~12월) 본부별 지출비용 추이 (퇴사자 지출액 포함)
+                <i class="fa-solid fa-chart-line text-indigo-600"></i> 월간 본부별 지출비용 추이
             </h3>
             <p class="text-xs text-slate-400 mb-4">각 월별 본부별 실제 결제된 지출액 변화 모니터링 ($)</p>
             <div class="relative h-72">
@@ -121,15 +121,17 @@
 
         <!-- 서브 차트 2종 -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <!-- 2. 본부별 지출비용 통계 -->
             <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
                 <h3 class="text-sm font-bold text-slate-800 mb-1 flex items-center gap-2">
-                    <i class="fa-solid fa-chart-pie text-indigo-500"></i> 본부별 AI 지출비용 비중
+                    <i class="fa-solid fa-chart-pie text-indigo-500"></i> 본부별 지출비용 통계
                 </h3>
                 <div class="relative h-64"><canvas id="deptChart"></canvas></div>
             </div>
+            <!-- 3. 프로그램별 구독수량 (현재기준) -->
             <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
                 <h3 class="text-sm font-bold text-slate-800 mb-1 flex items-center gap-2">
-                    <i class="fa-solid fa-chart-column text-indigo-500"></i> 프로그램별 유효 구독 수량 (퇴사자 제외)
+                    <i class="fa-solid fa-chart-column text-indigo-500"></i> 프로그램별 구독수량 (현재기준)
                 </h3>
                 <div class="relative h-64"><canvas id="toolChart"></canvas></div>
             </div>
@@ -260,7 +262,6 @@
                                     }
                                 }
 
-                                // 퇴사 여부 판별 (비고/상태/결제형태 주변 행 데이터 확인)
                                 const rawRowString = JSON.stringify(row);
                                 const isRetired = rawRowString.includes('퇴사');
 
@@ -293,7 +294,6 @@
             const deptSelect = document.getElementById('deptFilter');
             const programSelect = document.getElementById('programFilter');
 
-            // 퇴사자 제외한 부서/프로그램 목록 구성
             const activeData = RAW_DATA.filter(d => !d.isRetired);
             const depts = [...new Set(activeData.map(d => d.dept))].filter(Boolean);
             const programs = [...new Set(activeData.map(d => d.program))].filter(Boolean);
@@ -311,7 +311,6 @@
             const program = document.getElementById('programFilter').value;
             const search = document.getElementById('searchInput').value.toLowerCase();
 
-            // 1. 전체 데이터 (차트/비용 계산용 - 퇴사자 포함)
             const filteredAll = RAW_DATA.filter(item => {
                 const matchesDept = !dept || item.dept === dept;
                 const matchesType = !type || item.type === type;
@@ -323,10 +322,8 @@
                 return matchesDept && matchesType && matchesProgram && matchesSearch;
             });
 
-            // 2. 유효 데이터 (표 및 수량 차트용 - 퇴사자 제외)
             const filteredActive = filteredAll.filter(item => !item.isRetired);
 
-            // 상세 표 그려주기 (퇴사자 제외)
             const tbody = document.getElementById('tableBody');
             tbody.innerHTML = '';
             filteredActive.forEach(item => {
@@ -357,13 +354,9 @@
         }
 
         function updateKPIs(allData, activeData) {
-            // 유효 수량 합계 (퇴사자 제외)
             const activeQtyTotal = activeData.reduce((acc, curr) => acc + curr.qty, 0);
-            
-            // 누적 총 지출액 (퇴사자의 과거 결제액 포함)
             const totalCost = allData.reduce((acc, curr) => acc + curr.total, 0);
 
-            // 월 총 구독비용
             const monthlyTotals = MONTH_KEYS.map(m => {
                 return allData.reduce((sum, item) => sum + (item.monthly[m] || 0), 0);
             });
@@ -393,12 +386,10 @@
             const deptData = {};
             const toolData = {};
 
-            // 본부별 지출 금액: 퇴사자 과거 지출 포함
             allData.forEach(d => {
                 deptData[d.dept] = (deptData[d.dept] || 0) + d.total;
             });
 
-            // 프로그램별 수량: 퇴사자 제외 (유효 계약 기준)
             activeData.forEach(d => {
                 toolData[d.program] = (toolData[d.program] || 0) + d.qty;
             });
@@ -409,7 +400,7 @@
             const deptLabels = Object.keys(deptData);
             const deptColors = deptLabels.map((dept, idx) => getDeptColor(dept, idx));
 
-            // 1. 본부별 AI 지출비용 비중
+            // 본부별 지출비용 통계 차트
             deptChartInstance = new Chart(document.getElementById('deptChart'), {
                 type: 'doughnut',
                 data: {
@@ -435,13 +426,13 @@
                 }
             });
 
-            // 2. 프로그램별 구독 수량 (퇴사자 제외)
+            // 프로그램별 구독수량 (현재기준) 차트
             toolChartInstance = new Chart(document.getElementById('toolChart'), {
                 type: 'bar',
                 data: {
                     labels: Object.keys(toolData),
                     datasets: [{
-                        label: '유효 구독 수량',
+                        label: '구독 수량',
                         data: Object.values(toolData),
                         backgroundColor: '#4f46e5'
                     }]
@@ -454,7 +445,7 @@
             });
         }
 
-        // 3. 월별(1월~12월) 본부별 지출비용 추이 (퇴사자 포함 결제액)
+        // 월간 본부별 지출비용 추이 차트
         function renderMonthlyDeptChart(allData) {
             const depts = [...new Set(allData.map(d => d.dept))].filter(Boolean);
 
