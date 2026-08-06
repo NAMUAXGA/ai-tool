@@ -105,10 +105,39 @@
             </div>
         </div>
 
+        <!-- 📈 1. 월간 본부별 지출비용 추이 차트 -->
+        <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+            <h3 class="text-sm font-bold text-slate-800 mb-1 flex items-center gap-2">
+                <i class="fa-solid fa-chart-line text-indigo-600"></i> 월간 본부별 지출비용 추이
+            </h3>
+            <p class="text-xs text-slate-400 mb-4">각 월별 본부별 실제 결제된 지출액 변화 모니터링 ($)</p>
+            <div class="relative h-72">
+                <canvas id="monthlyDeptChart"></canvas>
+            </div>
+        </div>
+
+        <!-- 서브 차트 2종 -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <!-- 2. 본부별 지출비용 통계 -->
+            <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+                <h3 class="text-sm font-bold text-slate-800 mb-1 flex items-center gap-2">
+                    <i class="fa-solid fa-chart-pie text-indigo-500"></i> 본부별 지출비용 통계
+                </h3>
+                <div class="relative h-64"><canvas id="deptChart"></canvas></div>
+            </div>
+            <!-- 3. 프로그램별 구독수량 (현재기준) -->
+            <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+                <h3 class="text-sm font-bold text-slate-800 mb-1 flex items-center gap-2">
+                    <i class="fa-solid fa-chart-column text-indigo-500"></i> 프로그램별 구독수량 (현재기준)
+                </h3>
+                <div class="relative h-64"><canvas id="toolChart"></canvas></div>
+            </div>
+        </div>
+
         <!-- 상세 목록 표 (퇴사자 제외) -->
         <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
             <div class="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-                <h3 class="text-xs font-bold text-slate-700">현재 유효 구독 목록 (퇴사자 제외)</h3>
+                <h3 class="text-xs font-bold text-slate-700">현재기준 구독현황</h3>
             </div>
             <div class="overflow-x-auto">
                 <table class="w-full text-left text-sm whitespace-nowrap">
@@ -136,7 +165,12 @@
 
     <script>
         let RAW_DATA = [];
+        let deptChartInstance = null;
+        let toolChartInstance = null;
+        let monthlyDeptChartInstance = null;
+
         const MONTH_KEYS = ['1월', '2월', '3월', '4월', '5월', '6월', '7월', '8월', '9월', '10월', '11월', '12월'];
+        const FALLBACK_COLORS = ['#2563eb', '#7c3aed', '#059669', '#d97706', '#e11d48', '#0891b2', '#f97316', '#84cc16'];
 
         window.onload = function() {
             const savedUrl = localStorage.getItem('googleSheetCsvUrl');
@@ -192,7 +226,6 @@
                                     monthlyCosts[m] = cleanNumber(getValueByCandidateKeys(row, [m, m.replace('월', '')]));
                                 });
 
-                                // 연간사용액 키 인식
                                 let totalCost = cleanNumber(getValueByCandidateKeys(row, ['연간사용액', '연간 사용액', '총액(현재기준)', '총액', '합계', 'Total']));
                                 const sumMonthly = Object.values(monthlyCosts).reduce((a, b) => a + b, 0);
                                 if (totalCost === 0) totalCost = sumMonthly;
@@ -262,7 +295,6 @@
                 return matchesDept && matchesType && matchesProgram && matchesSearch;
             });
 
-            // 퇴사자 제외 목록
             const filteredActive = filteredAll.filter(item => !item.isRetired);
 
             const tbody = document.getElementById('tableBody');
@@ -288,7 +320,10 @@
             });
 
             document.getElementById('filtered-count').innerText = filteredActive.length;
+
             updateKPIs(filteredAll, filteredActive);
+            updateCharts(filteredAll, filteredActive);
+            renderMonthlyDeptChart(filteredAll);
         }
 
         function updateKPIs(allData, activeData) {
@@ -314,6 +349,111 @@
             document.getElementById('kpi-total-cost').innerText = '$' + totalCost.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
             document.getElementById('kpi-top-dept').innerText = topDept;
             document.getElementById('kpi-top-tool').innerText = topTool;
+        }
+
+        function updateCharts(allData, activeData) {
+            const deptData = {};
+            const toolData = {};
+
+            activeData.forEach(d => {
+                deptData[d.dept] = (deptData[d.dept] || 0) + d.total;
+                toolData[d.program] = (toolData[d.program] || 0) + d.qty;
+            });
+
+            if(deptChartInstance) deptChartInstance.destroy();
+            if(toolChartInstance) toolChartInstance.destroy();
+
+            const deptLabels = Object.keys(deptData);
+
+            // 1. 본부별 지출비용 통계 (원형)
+            deptChartInstance = new Chart(document.getElementById('deptChart'), {
+                type: 'doughnut',
+                data: {
+                    labels: deptLabels,
+                    datasets: [{
+                        data: Object.values(deptData),
+                        backgroundColor: FALLBACK_COLORS
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom' },
+                        tooltip: {
+                            callbacks: {
+                                label: ctx => ` ${ctx.label}: $${ctx.raw.toFixed(2)}`
+                            }
+                        }
+                    }
+                }
+            });
+
+            // 2. 프로그램별 구독수량 (막대)
+            toolChartInstance = new Chart(document.getElementById('toolChart'), {
+                type: 'bar',
+                data: {
+                    labels: Object.keys(toolData),
+                    datasets: [{
+                        label: '구독 수량',
+                        data: Object.values(toolData),
+                        backgroundColor: '#4f46e5'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } }
+                }
+            });
+        }
+
+        // 3. 월간 본부별 지출비용 추이 (꺾은선)
+        function renderMonthlyDeptChart(allData) {
+            const activeData = allData.filter(d => !d.isRetired);
+            const depts = [...new Set(activeData.map(d => d.dept))].filter(Boolean);
+
+            const datasets = depts.map((dept, idx) => {
+                const monthValues = MONTH_KEYS.map(m => {
+                    return activeData
+                        .filter(d => d.dept === dept)
+                        .reduce((sum, item) => sum + (item.monthly[m] || 0), 0);
+                });
+
+                const color = FALLBACK_COLORS[idx % FALLBACK_COLORS.length];
+
+                return {
+                    label: dept,
+                    data: monthValues,
+                    borderColor: color,
+                    backgroundColor: color,
+                    borderWidth: 2.5,
+                    pointRadius: 4,
+                    tension: 0.2,
+                    fill: false
+                };
+            });
+
+            if(monthlyDeptChartInstance) monthlyDeptChartInstance.destroy();
+
+            monthlyDeptChartInstance = new Chart(document.getElementById('monthlyDeptChart'), {
+                type: 'line',
+                data: {
+                    labels: MONTH_KEYS,
+                    datasets: datasets
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'top' } },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: { callback: value => '$' + value }
+                        }
+                    }
+                }
+            });
         }
     </script>
 </body>
