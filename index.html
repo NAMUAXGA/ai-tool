@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Tool 구독현황_나무AX</title>
+    <title>전사 AI Tool 구독현황</title>
     <!-- Tailwind CSS & Chart.js & PapaParse & FontAwesome -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -20,7 +20,7 @@
                     <i class="fa-solid fa-robot"></i>
                 </div>
                 <div>
-                    <h1 class="text-lg font-bold text-slate-900 leading-tight">AI Tool 구독현황_나무AX</h1>
+                    <h1 class="text-lg font-bold text-slate-900 leading-tight">전사 AI Tool 구독현황</h1>
                     <p class="text-xs text-slate-500 flex items-center gap-1">
                         <span class="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
                         Google Sheets 실시간 연동 대시보드
@@ -108,9 +108,9 @@
         <!-- 📈 1. 월간 본부별 지출비용 추이 차트 -->
         <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
             <h3 class="text-sm font-bold text-slate-800 mb-1 flex items-center gap-2">
-                <i class="fa-solid fa-chart-line text-indigo-600"></i> 월간 본부별 지출비용
+                <i class="fa-solid fa-chart-line text-indigo-600"></i> 월간 본부별 지출비용 추이
             </h3>
-            <p class="text-xs text-slate-400 mb-4"> ($)</p>
+            <p class="text-xs text-slate-400 mb-4">각 월별 본부별 실제 결제된 지출액 변화 모니터링 ($)</p>
             <div class="relative h-72">
                 <canvas id="monthlyDeptChart"></canvas>
             </div>
@@ -152,7 +152,7 @@
                             <th class="py-3 px-3">본부</th>
                             <th class="py-3 px-3">사용자</th>
                             <th class="py-3 px-3 text-center">수량</th>
-                            <th class="py-3 px-3 text-right bg-slate-200/50">단가</th>
+                            <th class="py-3 px-3 text-right bg-slate-200/50">단가(최근월기준)</th>
                             <th class="py-3 px-3 text-center">결제형태</th>
                             <th class="py-3 px-3 text-right bg-emerald-100/60 text-emerald-900 font-bold">연간사용액</th>
                         </tr>
@@ -194,14 +194,12 @@
             return isNaN(num) ? 0 : num;
         }
 
-        // 월별 헤더 유연 정밀 탐색
         function getMonthValue(row, monthIndex) {
             const targetNum = (monthIndex + 1).toString();
             const rowKeys = Object.keys(row);
             
             for (let key of rowKeys) {
                 const cleanKey = key.trim().replace(/\s+/g, '');
-                // '1월', '1', '01월', '01' 무조건 정밀 매칭
                 if (cleanKey === targetNum + '월' || cleanKey === targetNum || cleanKey === targetNum.padStart(2, '0') + '월' || cleanKey === targetNum.padStart(2, '0')) {
                     return cleanNumber(row[key]);
                 }
@@ -233,7 +231,6 @@
                     if (results.data && results.data.length > 0) {
                         RAW_DATA = results.data
                             .filter(row => {
-                                // 월별 금액이 존재하는 데이터 행이면 무조건 포함 (유효 데이터 누락 방지)
                                 const hasMonthlyCost = MONTH_KEYS.some((_, i) => getMonthValue(row, i) > 0);
                                 const hasNameOrTool = getValueByCandidateKeys(row, ['프로그램명', '프로그램', 'Tool']) || getValueByCandidateKeys(row, ['사용자', '이름']);
                                 return hasMonthlyCost || hasNameOrTool;
@@ -246,25 +243,40 @@
                                     monthlyCosts[m] = getMonthValue(row, i);
                                 });
 
-                                // 월별 합계를 연간 지출액으로 자동 계산
+                                // 연간 사용액 (월별 합계)
                                 const sumMonthly = Object.values(monthlyCosts).reduce((a, b) => a + b, 0);
                                 let totalCost = sumMonthly;
-
                                 if (totalCost === 0) {
                                     totalCost = cleanNumber(getValueByCandidateKeys(row, ['연간사용액', '연간 사용액', '총액(현재기준)', '총액', '합계', 'Total']));
                                 }
 
-                                let unitPrice = cleanNumber(getValueByCandidateKeys(row, ['단가', '월단가', 'Price']));
-                                if (unitPrice === 0) {
-                                    const activeMonth = Object.values(monthlyCosts).find(v => v > 0);
-                                    unitPrice = activeMonth ? (activeMonth / qty) : (totalCost / qty);
+                                // 🔥 [핵심 보정] 단가 계산: 12월부터 역순으로 탐색하여 '가장 최근 월'의 금액을 가져옴
+                                let latestMonthlyVal = 0;
+                                for (let i = MONTH_KEYS.length - 1; i >= 0; i--) {
+                                    const monthKey = MONTH_KEYS[i];
+                                    if (monthlyCosts[monthKey] > 0) {
+                                        latestMonthlyVal = monthlyCosts[monthKey];
+                                        break;
+                                    }
                                 }
 
-                                // 본부명 공백 제거 통일 (클라우드 연구소 -> 클라우드연구소)
+                                // 가장 최근 월 금액 / 수량 = 최신 1개당 단가
+                                let unitPrice = 0;
+                                if (latestMonthlyVal > 0) {
+                                    unitPrice = latestMonthlyVal / qty;
+                                } else {
+                                    // 월별 데이터가 아예 없을 경우 기존 단가 열 혹은 연간액 기준 추정
+                                    unitPrice = cleanNumber(getValueByCandidateKeys(row, ['단가', '월단가', 'Price']));
+                                    if (unitPrice === 0 && totalCost > 0) {
+                                        unitPrice = totalCost / qty;
+                                    }
+                                }
+
+                                // 본부명 공백 제거 통일
                                 let deptName = getValueByCandidateKeys(row, ['본부', '부서']) || '미분류';
                                 deptName = deptName.trim().replace(/\s+/g, '');
 
-                                // 퇴사자 필터 정밀화 ('상태' 열 혹은 사용자명 뒤 [퇴사] 형태만 탐지)
+                                // 퇴사자 탐지
                                 const statusVal = getValueByCandidateKeys(row, ['상태', '구분2', '비고']);
                                 const userVal = getValueByCandidateKeys(row, ['사용자', '이름']);
                                 const isRetired = statusVal.includes('퇴사') || userVal.includes('퇴사');
@@ -396,7 +408,6 @@
 
             const deptLabels = Object.keys(deptData);
 
-            // 1. 본부별 지출비용 통계 (원형)
             deptChartInstance = new Chart(document.getElementById('deptChart'), {
                 type: 'doughnut',
                 data: {
@@ -420,7 +431,6 @@
                 }
             });
 
-            // 2. 프로그램별 구독수량 (많은 순 정렬 적용)
             const sortedToolEntries = Object.entries(toolData).sort((a, b) => b[1] - a[1]);
             const sortedToolLabels = sortedToolEntries.map(entry => entry[0]);
             const sortedToolValues = sortedToolEntries.map(entry => entry[1]);
@@ -443,7 +453,6 @@
             });
         }
 
-        // 3. 월간 본부별 지출비용 추이 (꺾은선)
         function renderMonthlyDeptChart(activeData) {
             const depts = [...new Set(activeData.map(d => d.dept))].filter(Boolean);
 
