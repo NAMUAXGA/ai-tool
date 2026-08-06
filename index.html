@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Tool 구독현황_나무AX</title>
+    <title>전사 AI Tool 구독현황_나무AX</title>
     <!-- Tailwind CSS & Chart.js & PapaParse & FontAwesome -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -187,7 +187,6 @@
             fetchSheetData();
         }
 
-        // 숫자 정제 로직 강화
         function cleanNumber(val) {
             if (val === null || val === undefined) return 0;
             const str = val.toString().replace(/[^0-9.-]/g, '');
@@ -195,15 +194,15 @@
             return isNaN(num) ? 0 : num;
         }
 
-        // 월 헤더 유연 탐색 (공백, '월' 포함/미포함 처리)
+        // 월별 헤더 유연 정밀 탐색
         function getMonthValue(row, monthIndex) {
-            const targetMonthNum = (monthIndex + 1).toString();
-            const targetMonthStr = targetMonthNum + '월';
-
+            const targetNum = (monthIndex + 1).toString();
             const rowKeys = Object.keys(row);
+            
             for (let key of rowKeys) {
                 const cleanKey = key.trim().replace(/\s+/g, '');
-                if (cleanKey === targetMonthStr || cleanKey === targetMonthNum || cleanKey === targetMonthNum.padStart(2, '0') + '월') {
+                // '1월', '1', '01월', '01' 무조건 정밀 매칭
+                if (cleanKey === targetNum + '월' || cleanKey === targetNum || cleanKey === targetNum.padStart(2, '0') + '월' || cleanKey === targetNum.padStart(2, '0')) {
                     return cleanNumber(row[key]);
                 }
             }
@@ -233,7 +232,12 @@
                 complete: function(results) {
                     if (results.data && results.data.length > 0) {
                         RAW_DATA = results.data
-                            .filter(row => getValueByCandidateKeys(row, ['프로그램명', '프로그램', 'Tool']) || getValueByCandidateKeys(row, ['사용자', '이름']))
+                            .filter(row => {
+                                // 월별 금액이 존재하는 데이터 행이면 무조건 포함 (유효 데이터 누락 방지)
+                                const hasMonthlyCost = MONTH_KEYS.some((_, i) => getMonthValue(row, i) > 0);
+                                const hasNameOrTool = getValueByCandidateKeys(row, ['프로그램명', '프로그램', 'Tool']) || getValueByCandidateKeys(row, ['사용자', '이름']);
+                                return hasMonthlyCost || hasNameOrTool;
+                            })
                             .map((row, idx) => {
                                 const qty = cleanNumber(getValueByCandidateKeys(row, ['수량', 'Qty'])) || 1;
                                 
@@ -242,11 +246,10 @@
                                     monthlyCosts[m] = getMonthValue(row, i);
                                 });
 
-                                // 월별 합계 정확 계산
+                                // 월별 합계를 연간 지출액으로 자동 계산
                                 const sumMonthly = Object.values(monthlyCosts).reduce((a, b) => a + b, 0);
                                 let totalCost = sumMonthly;
 
-                                // 월별 데이터가 전부 없는 경우 시트 내 연간 총액 사용
                                 if (totalCost === 0) {
                                     totalCost = cleanNumber(getValueByCandidateKeys(row, ['연간사용액', '연간 사용액', '총액(현재기준)', '총액', '합계', 'Total']));
                                 }
@@ -257,7 +260,14 @@
                                     unitPrice = activeMonth ? (activeMonth / qty) : (totalCost / qty);
                                 }
 
-                                const isRetired = JSON.stringify(row).includes('퇴사');
+                                // 본부명 공백 제거 통일 (클라우드 연구소 -> 클라우드연구소)
+                                let deptName = getValueByCandidateKeys(row, ['본부', '부서']) || '미분류';
+                                deptName = deptName.trim().replace(/\s+/g, '');
+
+                                // 퇴사자 필터 정밀화 ('상태' 열 혹은 사용자명 뒤 [퇴사] 형태만 탐지)
+                                const statusVal = getValueByCandidateKeys(row, ['상태', '구분2', '비고']);
+                                const userVal = getValueByCandidateKeys(row, ['사용자', '이름']);
+                                const isRetired = statusVal.includes('퇴사') || userVal.includes('퇴사');
 
                                 return {
                                     no: parseInt(getValueByCandidateKeys(row, ['No.', 'No', '순번'])) || (idx + 1),
@@ -266,8 +276,8 @@
                                     version: getValueByCandidateKeys(row, ['버전', 'Version']) || '-',
                                     startDate: getValueByCandidateKeys(row, ['시작일']) || '-',
                                     usage: getValueByCandidateKeys(row, ['사용용도', '용도']) || '-',
-                                    dept: getValueByCandidateKeys(row, ['본부', '부서']) || '미분류',
-                                    user: getValueByCandidateKeys(row, ['사용자', '이름']) || '-',
+                                    dept: deptName,
+                                    user: userVal || '-',
                                     qty: qty,
                                     unitPrice: unitPrice,
                                     paymentType: getValueByCandidateKeys(row, ['결제형태', '결제방식']) || '월구독',
