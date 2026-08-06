@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Tool 구독현황_나무AX</title>
+    <title>전사 AI Tool 구독현황</title>
     <!-- Tailwind CSS & Chart.js & PapaParse & FontAwesome -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -20,7 +20,7 @@
                     <i class="fa-solid fa-robot"></i>
                 </div>
                 <div>
-                    <h1 class="text-lg font-bold text-slate-900 leading-tight">AI Tool 구독현황_나무AX</h1>
+                    <h1 class="text-lg font-bold text-slate-900 leading-tight">전사 AI Tool 구독현황</h1>
                     <p class="text-xs text-slate-500 flex items-center gap-1">
                         <span class="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
                         Google Sheets 실시간 연동 대시보드
@@ -125,7 +125,7 @@
                 </h3>
                 <div class="relative h-64"><canvas id="deptChart"></canvas></div>
             </div>
-            <!-- 3. 프로그램별 구독수량 (현재기준) -->
+            <!-- 3. 프로그램별 구독수량 (많은 순 정렬) -->
             <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
                 <h3 class="text-sm font-bold text-slate-800 mb-1 flex items-center gap-2">
                     <i class="fa-solid fa-chart-column text-indigo-500"></i> 프로그램별 구독수량 (현재기준)
@@ -134,7 +134,7 @@
             </div>
         </div>
 
-        <!-- 상세 목록 표 (퇴사자 제외) -->
+        <!-- 상세 목록 표 -->
         <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
             <div class="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
                 <h3 class="text-xs font-bold text-slate-700">현재기준 구독현황</h3>
@@ -389,14 +389,18 @@
                 }
             });
 
-            // 2. 프로그램별 구독수량 (막대)
+            // 2. 프로그램별 구독수량 (많은 순 정렬 적용)
+            const sortedToolEntries = Object.entries(toolData).sort((a, b) => b[1] - a[1]);
+            const sortedToolLabels = sortedToolEntries.map(entry => entry[0]);
+            const sortedToolValues = sortedToolEntries.map(entry => entry[1]);
+
             toolChartInstance = new Chart(document.getElementById('toolChart'), {
                 type: 'bar',
                 data: {
-                    labels: Object.keys(toolData),
+                    labels: sortedToolLabels,
                     datasets: [{
                         label: '구독 수량',
-                        data: Object.values(toolData),
+                        data: sortedToolValues,
                         backgroundColor: '#4f46e5'
                     }]
                 },
