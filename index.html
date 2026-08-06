@@ -3,14 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>전사 AI Tool 구독현황_나무에이엑스</title>
-    <!-- Tailwind CSS -->
+    <title>전사 AI Tool 구독현황</title>
+    <!-- Tailwind CSS & Chart.js & PapaParse & FontAwesome -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <!-- PapaParse -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
-    <!-- FontAwesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body class="bg-slate-50 text-slate-800 min-h-screen">
@@ -23,7 +20,7 @@
                     <i class="fa-solid fa-robot"></i>
                 </div>
                 <div>
-                    <h1 class="text-lg font-bold text-slate-900 leading-tight">전사 AI Tool 구독현황_나무에이엑스</h1>
+                    <h1 class="text-lg font-bold text-slate-900 leading-tight">전사 AI Tool 구독현황</h1>
                     <p class="text-xs text-slate-500 flex items-center gap-1">
                         <span class="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
                         Google Sheets 실시간 연동 대시보드
@@ -84,7 +81,7 @@
             </div>
         </div>
 
-        <!-- 📊 KPI 카드 -->
+        <!-- KPI 카드 -->
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
             <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
                 <p class="text-xs font-medium text-slate-500">현재 유효 구독 수량</p>
@@ -95,7 +92,7 @@
                 <h2 id="kpi-monthly-cost" class="text-xl font-extrabold text-indigo-700 mt-1">$0.00</h2>
             </div>
             <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-                <p class="text-xs font-medium text-slate-500">총 누적 지출액 (퇴사자 포함)</p>
+                <p class="text-xs font-medium text-slate-500">총 연간 지출액</p>
                 <h2 id="kpi-total-cost" class="text-xl font-extrabold text-emerald-600 mt-1">$0.00</h2>
             </div>
             <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
@@ -108,36 +105,7 @@
             </div>
         </div>
 
-        <!-- 📈 1. 월간 본부별 지출비용 추이 차트 -->
-        <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-            <h3 class="text-sm font-bold text-slate-800 mb-1 flex items-center gap-2">
-                <i class="fa-solid fa-chart-line text-indigo-600"></i> 월간 본부별 지출비용 추이
-            </h3>
-            <p class="text-xs text-slate-400 mb-4">각 월별 본부별 실제 결제된 지출액 변화 모니터링 ($)</p>
-            <div class="relative h-72">
-                <canvas id="monthlyDeptChart"></canvas>
-            </div>
-        </div>
-
-        <!-- 서브 차트 2종 -->
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <!-- 2. 본부별 지출비용 통계 -->
-            <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-                <h3 class="text-sm font-bold text-slate-800 mb-1 flex items-center gap-2">
-                    <i class="fa-solid fa-chart-pie text-indigo-500"></i> 본부별 지출비용 통계
-                </h3>
-                <div class="relative h-64"><canvas id="deptChart"></canvas></div>
-            </div>
-            <!-- 3. 프로그램별 구독수량 (현재기준) -->
-            <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-                <h3 class="text-sm font-bold text-slate-800 mb-1 flex items-center gap-2">
-                    <i class="fa-solid fa-chart-column text-indigo-500"></i> 프로그램별 구독수량 (현재기준)
-                </h3>
-                <div class="relative h-64"><canvas id="toolChart"></canvas></div>
-            </div>
-        </div>
-
-        <!-- 📋 상세 목록 표 (퇴사자 제외) -->
+        <!-- 상세 목록 표 (퇴사자 제외) -->
         <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
             <div class="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
                 <h3 class="text-xs font-bold text-slate-700">현재 유효 구독 목록 (퇴사자 제외)</h3>
@@ -157,7 +125,7 @@
                             <th class="py-3 px-3 text-center">수량</th>
                             <th class="py-3 px-3 text-right bg-slate-200/50">단가</th>
                             <th class="py-3 px-3 text-center">결제형태</th>
-                            <th class="py-3 px-3 text-right bg-emerald-100/60 text-emerald-900 font-bold">총액(현재기준)</th>
+                            <th class="py-3 px-3 text-right bg-emerald-100/60 text-emerald-900 font-bold">연간사용액</th>
                         </tr>
                     </thead>
                     <tbody id="tableBody" class="divide-y divide-slate-100"></tbody>
@@ -168,32 +136,11 @@
 
     <script>
         let RAW_DATA = [];
-        let deptChartInstance = null;
-        let toolChartInstance = null;
-        let monthlyDeptChartInstance = null;
-
         const MONTH_KEYS = ['1월', '2월', '3월', '4월', '5월', '6월', '7월', '8월', '9월', '10월', '11월', '12월'];
-
-        const DEPT_COLOR_MAP = {
-            '클라우드연구소': '#2563eb', 
-            'AI본부': '#7c3aed',        
-            '영업1본부': '#059669',     
-            '영업지원팀': '#d97706',     
-            '기술1본부': '#e11d48',     
-            '기술연구소': '#0891b2',     
-            '기타': '#64748b'            
-        };
-
-        const FALLBACK_COLORS = ['#2563eb', '#7c3aed', '#059669', '#d97706', '#e11d48', '#0891b2', '#f97316', '#84cc16'];
-
-        function getDeptColor(deptName, index) {
-            if (DEPT_COLOR_MAP[deptName]) return DEPT_COLOR_MAP[deptName];
-            return FALLBACK_COLORS[index % FALLBACK_COLORS.length];
-        }
 
         window.onload = function() {
             const savedUrl = localStorage.getItem('googleSheetCsvUrl');
-            if(savedUrl) {
+            if (savedUrl) {
                 document.getElementById('sheetUrlInput').value = savedUrl;
                 fetchSheetData();
             }
@@ -232,9 +179,7 @@
                 download: true,
                 header: true,
                 skipEmptyLines: true,
-                transformHeader: function(h) {
-                    return h ? h.trim().replace(/^[\uFEFF\xFFFE]/, '') : '';
-                },
+                transformHeader: h => h ? h.trim().replace(/^[\uFEFF\xFFFE]/, '') : '',
                 complete: function(results) {
                     if (results.data && results.data.length > 0) {
                         RAW_DATA = results.data
@@ -244,26 +189,21 @@
                                 
                                 const monthlyCosts = {};
                                 MONTH_KEYS.forEach(m => {
-                                    const val = getValueByCandidateKeys(row, [m, m.replace('월', '')]);
-                                    monthlyCosts[m] = cleanNumber(val);
+                                    monthlyCosts[m] = cleanNumber(getValueByCandidateKeys(row, [m, m.replace('월', '')]));
                                 });
 
-                                let totalCost = cleanNumber(getValueByCandidateKeys(row, ['총액(현재기준)', '총액', '합계', 'Total']));
+                                // 연간사용액 키 인식
+                                let totalCost = cleanNumber(getValueByCandidateKeys(row, ['연간사용액', '연간 사용액', '총액(현재기준)', '총액', '합계', 'Total']));
                                 const sumMonthly = Object.values(monthlyCosts).reduce((a, b) => a + b, 0);
                                 if (totalCost === 0) totalCost = sumMonthly;
 
                                 let unitPrice = cleanNumber(getValueByCandidateKeys(row, ['단가', '월단가', 'Price']));
                                 if (unitPrice === 0) {
                                     const activeMonth = Object.values(monthlyCosts).find(v => v > 0);
-                                    if (activeMonth) {
-                                        unitPrice = activeMonth / qty;
-                                    } else if (totalCost > 0) {
-                                        unitPrice = totalCost / qty;
-                                    }
+                                    unitPrice = activeMonth ? (activeMonth / qty) : (totalCost / qty);
                                 }
 
-                                const rawRowString = JSON.stringify(row);
-                                const isRetired = rawRowString.includes('퇴사');
+                                const isRetired = JSON.stringify(row).includes('퇴사');
 
                                 return {
                                     no: parseInt(getValueByCandidateKeys(row, ['No.', 'No', '순번'])) || (idx + 1),
@@ -322,6 +262,7 @@
                 return matchesDept && matchesType && matchesProgram && matchesSearch;
             });
 
+            // 퇴사자 제외 목록
             const filteredActive = filteredAll.filter(item => !item.isRetired);
 
             const tbody = document.getElementById('tableBody');
@@ -347,28 +288,21 @@
             });
 
             document.getElementById('filtered-count').innerText = filteredActive.length;
-
             updateKPIs(filteredAll, filteredActive);
-            updateCharts(filteredAll, filteredActive);
-            renderMonthlyDeptChart(filteredAll);
         }
 
         function updateKPIs(allData, activeData) {
             const activeQtyTotal = activeData.reduce((acc, curr) => acc + curr.qty, 0);
-            const totalCost = allData.reduce((acc, curr) => acc + curr.total, 0);
+            const totalCost = activeData.reduce((acc, curr) => acc + curr.total, 0);
 
-            const monthlyTotals = MONTH_KEYS.map(m => {
-                return allData.reduce((sum, item) => sum + (item.monthly[m] || 0), 0);
-            });
+            const monthlyTotals = MONTH_KEYS.map(m => activeData.reduce((sum, item) => sum + (item.monthly[m] || 0), 0));
             const activeMonthlyTotals = monthlyTotals.filter(v => v > 0);
             const latestMonthlyCost = activeMonthlyTotals.length > 0 ? activeMonthlyTotals[activeMonthlyTotals.length - 1] : 0;
 
             const deptTotals = {};
             const toolCounts = {};
-            allData.forEach(d => {
-                deptTotals[d.dept] = (deptTotals[d.dept] || 0) + d.total;
-            });
             activeData.forEach(d => {
+                deptTotals[d.dept] = (deptTotals[d.dept] || 0) + d.total;
                 toolCounts[d.program] = (toolCounts[d.program] || 0) + d.qty;
             });
 
@@ -380,116 +314,6 @@
             document.getElementById('kpi-total-cost').innerText = '$' + totalCost.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
             document.getElementById('kpi-top-dept').innerText = topDept;
             document.getElementById('kpi-top-tool').innerText = topTool;
-        }
-
-        function updateCharts(allData, activeData) {
-            const deptData = {};
-            const toolData = {};
-
-            allData.forEach(d => {
-                deptData[d.dept] = (deptData[d.dept] || 0) + d.total;
-            });
-
-            activeData.forEach(d => {
-                toolData[d.program] = (toolData[d.program] || 0) + d.qty;
-            });
-
-            if(deptChartInstance) deptChartInstance.destroy();
-            if(toolChartInstance) toolChartInstance.destroy();
-
-            const deptLabels = Object.keys(deptData);
-            const deptColors = deptLabels.map((dept, idx) => getDeptColor(dept, idx));
-
-            // 본부별 지출비용 통계 차트
-            deptChartInstance = new Chart(document.getElementById('deptChart'), {
-                type: 'doughnut',
-                data: {
-                    labels: deptLabels,
-                    datasets: [{
-                        data: Object.values(deptData),
-                        backgroundColor: deptColors
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: { position: 'bottom' },
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    return ` ${context.label}: $${context.raw.toFixed(2)}`;
-                                }
-                            }
-                        }
-                    }
-                }
-            });
-
-            // 프로그램별 구독수량 (현재기준) 차트
-            toolChartInstance = new Chart(document.getElementById('toolChart'), {
-                type: 'bar',
-                data: {
-                    labels: Object.keys(toolData),
-                    datasets: [{
-                        label: '구독 수량',
-                        data: Object.values(toolData),
-                        backgroundColor: '#4f46e5'
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { display: false } }
-                }
-            });
-        }
-
-        // 월간 본부별 지출비용 추이 차트
-        function renderMonthlyDeptChart(allData) {
-            const depts = [...new Set(allData.map(d => d.dept))].filter(Boolean);
-
-            const datasets = depts.map((dept, idx) => {
-                const monthValues = MONTH_KEYS.map(m => {
-                    return allData
-                        .filter(d => d.dept === dept)
-                        .reduce((sum, item) => sum + (item.monthly[m] || 0), 0);
-                });
-
-                const deptColor = getDeptColor(dept, idx);
-
-                return {
-                    label: dept,
-                    data: monthValues,
-                    borderColor: deptColor,
-                    backgroundColor: deptColor,
-                    borderWidth: 2.5,
-                    pointRadius: 4,
-                    tension: 0.2,
-                    fill: false
-                };
-            });
-
-            if(monthlyDeptChartInstance) monthlyDeptChartInstance.destroy();
-
-            monthlyDeptChartInstance = new Chart(document.getElementById('monthlyDeptChart'), {
-                type: 'line',
-                data: {
-                    labels: MONTH_KEYS,
-                    datasets: datasets
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { position: 'top' } },
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            ticks: { callback: value => '$' + value }
-                        }
-                    }
-                }
-            });
         }
     </script>
 </body>
