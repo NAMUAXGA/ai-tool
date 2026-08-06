@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Tool 구독현황_나무AX</title>
+    <title>전사 AI Tool 구독현황</title>
     <!-- Tailwind CSS & Chart.js & PapaParse & FontAwesome -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -20,7 +20,7 @@
                     <i class="fa-solid fa-robot"></i>
                 </div>
                 <div>
-                    <h1 class="text-lg font-bold text-slate-900 leading-tight">AI Tool 구독현황_나무AX</h1>
+                    <h1 class="text-lg font-bold text-slate-900 leading-tight">전사 AI Tool 구독현황</h1>
                     <p class="text-xs text-slate-500 flex items-center gap-1">
                         <span class="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
                         Google Sheets 실시간 연동 대시보드
@@ -108,9 +108,9 @@
         <!-- 📈 1. 월간 본부별 지출비용 추이 차트 -->
         <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
             <h3 class="text-sm font-bold text-slate-800 mb-1 flex items-center gap-2">
-                <i class="fa-solid fa-chart-line text-indigo-600"></i> 월간 본부별 지출비용
+                <i class="fa-solid fa-chart-line text-indigo-600"></i> 월간 본부별 지출비용 추이
             </h3>
-            <p class="text-xs text-slate-400 mb-4"> </p>
+            <p class="text-xs text-slate-400 mb-4">각 월별 본부별 실제 결제된 지출액 변화 모니터링 ($)</p>
             <div class="relative h-72">
                 <canvas id="monthlyDeptChart"></canvas>
             </div>
@@ -187,11 +187,27 @@
             fetchSheetData();
         }
 
+        // 숫자 정제 로직 강화
         function cleanNumber(val) {
             if (val === null || val === undefined) return 0;
             const str = val.toString().replace(/[^0-9.-]/g, '');
             const num = parseFloat(str);
             return isNaN(num) ? 0 : num;
+        }
+
+        // 월 헤더 유연 탐색 (공백, '월' 포함/미포함 처리)
+        function getMonthValue(row, monthIndex) {
+            const targetMonthNum = (monthIndex + 1).toString();
+            const targetMonthStr = targetMonthNum + '월';
+
+            const rowKeys = Object.keys(row);
+            for (let key of rowKeys) {
+                const cleanKey = key.trim().replace(/\s+/g, '');
+                if (cleanKey === targetMonthStr || cleanKey === targetMonthNum || cleanKey === targetMonthNum.padStart(2, '0') + '월') {
+                    return cleanNumber(row[key]);
+                }
+            }
+            return 0;
         }
 
         function getValueByCandidateKeys(row, candidateKeys) {
@@ -222,13 +238,18 @@
                                 const qty = cleanNumber(getValueByCandidateKeys(row, ['수량', 'Qty'])) || 1;
                                 
                                 const monthlyCosts = {};
-                                MONTH_KEYS.forEach(m => {
-                                    monthlyCosts[m] = cleanNumber(getValueByCandidateKeys(row, [m, m.replace('월', '')]));
+                                MONTH_KEYS.forEach((m, i) => {
+                                    monthlyCosts[m] = getMonthValue(row, i);
                                 });
 
-                                let totalCost = cleanNumber(getValueByCandidateKeys(row, ['연간사용액', '연간 사용액', '총액(현재기준)', '총액', '합계', 'Total']));
+                                // 월별 합계 정확 계산
                                 const sumMonthly = Object.values(monthlyCosts).reduce((a, b) => a + b, 0);
-                                if (totalCost === 0) totalCost = sumMonthly;
+                                let totalCost = sumMonthly;
+
+                                // 월별 데이터가 전부 없는 경우 시트 내 연간 총액 사용
+                                if (totalCost === 0) {
+                                    totalCost = cleanNumber(getValueByCandidateKeys(row, ['연간사용액', '연간 사용액', '총액(현재기준)', '총액', '합계', 'Total']));
+                                }
 
                                 let unitPrice = cleanNumber(getValueByCandidateKeys(row, ['단가', '월단가', 'Price']));
                                 if (unitPrice === 0) {
@@ -323,7 +344,7 @@
 
             updateKPIs(filteredAll, filteredActive);
             updateCharts(filteredAll, filteredActive);
-            renderMonthlyDeptChart(filteredActive); // 수정: 유효 데이터(filteredActive) 전달
+            renderMonthlyDeptChart(filteredActive);
         }
 
         function updateKPIs(allData, activeData) {
@@ -412,7 +433,7 @@
             });
         }
 
-        // 3. 월간 본부별 지출비용 추이 (꺾은선 - 데이터 동기화 수정)
+        // 3. 월간 본부별 지출비용 추이 (꺾은선)
         function renderMonthlyDeptChart(activeData) {
             const depts = [...new Set(activeData.map(d => d.dept))].filter(Boolean);
 
